@@ -1,0 +1,60 @@
+@import 'bootstrap/scss/bootstrap';
+@import 'admin-lte/dist/css/adminlte.css';
+@import '@fortawesome/fontawesome-free/css/all.css';
+
+:root {
+    color-scheme: light;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background-color: #f4f6f9;
+    min-height: 100vh;
+}
+
+a {
+    text-decoration: none;
+}
+
+.main-wrapper {
+    min-height: 100vh;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    letter-spacing: 0.03rem;
+}
+
+.card-mobile {
+    border-radius: 18px;
+    border: none;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 576px) {
+    .card-mobile {
+        border-radius: 16px;
+    }
+
+    .main-content {
+        padding-bottom: 5rem;
+    }
+}
+
+
+.fc {
+    background-color: #fff;
+    border-radius: 1rem;
+    padding: 1rem;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.fc .fc-button-primary {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
