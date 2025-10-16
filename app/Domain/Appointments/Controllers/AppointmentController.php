@@ -34,21 +34,27 @@ class AppointmentController extends Controller
     {
         $appointment = $this->service->create(AppointmentData::fromRequest($request));
 
-        return AppointmentResource::make($appointment->load(['client', 'professional.user', 'service']))
+        return AppointmentResource::make(
+            $appointment->load(['client', 'professional.user', 'service', 'clientPackage.package.service'])
+        )
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
     public function show(Appointment $appointment)
     {
-        return AppointmentResource::make($appointment->load(['client', 'professional.user', 'service']));
+        return AppointmentResource::make(
+            $appointment->load(['client', 'professional.user', 'service', 'clientPackage.package.service'])
+        );
     }
 
     public function update(AppointmentRequest $request, Appointment $appointment)
     {
         $updated = $this->service->update($appointment, AppointmentData::fromRequest($request));
 
-        return AppointmentResource::make($updated->load(['client', 'professional.user', 'service']));
+        return AppointmentResource::make(
+            $updated->load(['client', 'professional.user', 'service', 'clientPackage.package.service'])
+        );
     }
 
     public function destroy(Appointment $appointment)

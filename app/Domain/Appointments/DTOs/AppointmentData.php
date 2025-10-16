@@ -8,6 +8,7 @@ class AppointmentData
 {
     public function __construct(
         public readonly int $clientId,
+        public readonly int $clientPackageId,
         public readonly int $professionalId,
         public readonly ?int $roomId,
         public readonly ?int $equipmentId,
@@ -24,6 +25,7 @@ class AppointmentData
     {
         return new self(
             clientId: (int) $request->input('client_id'),
+            clientPackageId: (int) $request->input('client_package_id'),
             professionalId: (int) $request->input('professional_id'),
             roomId: $request->input('room_id'),
             equipmentId: $request->input('equipment_id'),
@@ -40,6 +42,7 @@ class AppointmentData
     {
         return [
             'client_id' => $this->clientId,
+            'client_package_id' => $this->clientPackageId,
             'professional_id' => $this->professionalId,
             'room_id' => $this->roomId,
             'equipment_id' => $this->equipmentId,

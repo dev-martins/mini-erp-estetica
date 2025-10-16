@@ -11,7 +11,13 @@ class DomainServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\Laravel\Passport\Console\InstallCommand::class, function ($app) {
+            return $app->make(\App\Console\Commands\PassportInstallCommand::class);
+        });
+
+        $this->app->singleton('command.passport.install', function ($app) {
+            return $app->make(\App\Console\Commands\PassportInstallCommand::class);
+        });
     }
 
     /**
@@ -19,6 +25,10 @@ class DomainServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \App\Console\Commands\PassportInstallCommand::class,
+            ]);
+        }
     }
 }

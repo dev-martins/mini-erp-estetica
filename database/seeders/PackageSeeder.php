@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Domain\Appointments\Models\Appointment;
 use App\Domain\Sales\Models\ClientPackage;
 use App\Domain\Sales\Models\Package;
 use App\Domain\Sales\Models\Sale;
-use App\Domain\Services\Models\Service;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
@@ -13,44 +13,111 @@ class PackageSeeder extends Seeder
 {
     public function run(): void
     {
-        $service = Service::where('name', 'Drenagem Linfática Corporal')->first()
-            ?? Service::first();
+        $appointments = Appointment::query()
+            ->with(['client', 'service'])
+            ->orderBy('scheduled_at')
+            ->get();
 
-        if (! $service) {
-            $this->command?->warn('Pacotes não gerados: nenhum serviço encontrado.');
+        if ($appointments->isEmpty()) {
+            $this->command?->warn('Pacotes não gerados: nenhum agendamento encontrado.');
             return;
         }
 
-        $package = Package::updateOrCreate(
-            ['name' => 'Plano Detox 5 sessões'],
-            [
-                'service_id' => $service->id,
-                'sessions_count' => 5,
-                'price' => 799.90,
-                'expiry_days' => 180,
-                'description' => 'Pacote promocional para drenagem linfática com acompanhamento personalizado.',
-                'active' => true,
-            ]
-        );
+        $packagesByService = [];
+        $sessionsPerPackage = 5;
+        $defaultExpiryDays = 180;
 
-        $sale = Sale::first();
-        $client = $sale?->client;
+        foreach ($appointments->groupBy('service_id') as $serviceId => $serviceAppointments) {
+            $service = $serviceAppointments->first()?->service;
 
-        if ($sale && $client) {
-            ClientPackage::updateOrCreate(
+            if (! $service) {
+                $this->command?->warn('Serviço não encontrado para gerar pacote.');
+                continue;
+            }
+
+            $packageName = sprintf('Plano Fidelidade - %s', $service->name);
+            $basePrice = (float) ($service->list_price ?? 0);
+            $packagePrice = $basePrice > 0 ? round($basePrice * $sessionsPerPackage * 0.9, 2) : 0;
+
+            $packagesByService[$serviceId] = Package::updateOrCreate(
                 [
-                    'client_id' => $client->id,
-                    'package_id' => $package->id,
+                    'service_id' => $serviceId,
+                    'name' => $packageName,
                 ],
                 [
-                    'sale_id' => $sale->id,
-                    'purchased_at' => $sale->sold_at ?? now(),
-                    'remaining_sessions' => 4,
-                    'expiry_at' => Carbon::parse($sale->sold_at ?? now())->addDays($package->expiry_days ?? 180),
+                    'sessions_count' => $sessionsPerPackage,
+                    'min_interval_hours' => $service->min_interval_hours ?: null,
+                    'price' => $packagePrice ?: ($basePrice ?: 0),
+                    'expiry_days' => $defaultExpiryDays,
+                    'description' => sprintf(
+                        'Pacote com %d sessões de %s para fidelização.',
+                        $sessionsPerPackage,
+                        mb_strtolower($service->name)
+                    ),
+                    'active' => true,
                 ]
             );
         }
 
-        $this->command?->info('Pacotes criados e associados a clientes.');
+        if (empty($packagesByService)) {
+            $this->command?->warn('Pacotes não gerados: serviços indisponíveis.');
+            return;
+        }
+
+        $appointments
+            ->groupBy('client_id')
+            ->each(function ($clientAppointments) use ($packagesByService, $sessionsPerPackage, $defaultExpiryDays): void {
+                $clientAppointments
+                    ->groupBy('service_id')
+                    ->each(function ($serviceAppointments, $serviceId) use (
+                        $packagesByService,
+                        $sessionsPerPackage,
+                        $defaultExpiryDays
+                    ): void {
+                        $package = $packagesByService[$serviceId] ?? null;
+
+                        if (! $package) {
+                            return;
+                        }
+
+                        $sale = Sale::query()
+                            ->whereIn('appointment_id', $serviceAppointments->pluck('id'))
+                            ->orderBy('sold_at')
+                            ->first();
+
+                        if (! $sale || ! $sale->client) {
+                            return;
+                        }
+
+                        $consumedSessions = min($serviceAppointments->count(), $sessionsPerPackage);
+                        $remainingSessions = max($sessionsPerPackage - $consumedSessions, 0);
+                        $purchasedAt = $sale->sold_at ?? now();
+
+                        $clientPackage = ClientPackage::updateOrCreate(
+                            [
+                                'client_id' => $sale->client_id,
+                                'package_id' => $package->id,
+                            ],
+                            [
+                                'sale_id' => $sale->id,
+                                'purchased_at' => $purchasedAt,
+                                'remaining_sessions' => $remainingSessions,
+                                'expiry_at' => Carbon::parse($purchasedAt)->addDays($package->expiry_days ?? $defaultExpiryDays),
+                            ]
+                        );
+
+                        $serviceAppointments
+                            ->sortBy('scheduled_at')
+                            ->values()
+                            ->each(function (Appointment $appointment, int $index) use ($clientPackage): void {
+                                $appointment->forceFill([
+                                    'client_package_id' => $clientPackage->id,
+                                    'package_session_number' => $index + 1,
+                                ])->save();
+                            });
+                    });
+            });
+
+        $this->command?->info('Pacotes gerados para clientes com agendamentos ativos.');
     }
 }

@@ -16,6 +16,7 @@ class Package extends Model
         'name',
         'service_id',
         'sessions_count',
+        'min_interval_hours',
         'price',
         'expiry_days',
         'description',
@@ -24,6 +25,7 @@ class Package extends Model
 
     protected $casts = [
         'sessions_count' => 'integer',
+        'min_interval_hours' => 'integer',
         'price' => 'float',
         'active' => 'boolean',
     ];

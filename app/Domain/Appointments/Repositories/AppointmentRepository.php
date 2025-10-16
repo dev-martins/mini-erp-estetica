@@ -13,7 +13,12 @@ class AppointmentRepository
     public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         return Appointment::query()
-            ->with(['client', 'professional.user', 'service'])
+            ->with([
+                'client',
+                'professional.user',
+                'service',
+                'clientPackage.package.service',
+            ])
             ->when($filters['from'] ?? null, function (Builder $query, string $from): void {
                 $query->where('scheduled_at', '>=', Carbon::parse($from));
             })
@@ -25,14 +30,14 @@ class AppointmentRepository
             ->paginate($perPage);
     }
 
-    public function create(AppointmentData $data): Appointment
+    public function create(AppointmentData $data, array $extra = []): Appointment
     {
-        return Appointment::create($data->toArray());
+        return Appointment::create(array_merge($data->toArray(), $extra));
     }
 
-    public function update(Appointment $appointment, AppointmentData $data): Appointment
+    public function update(Appointment $appointment, AppointmentData $data, array $extra = []): Appointment
     {
-        $appointment->update($data->toArray());
+        $appointment->update(array_merge($data->toArray(), $extra));
 
         return $appointment;
     }

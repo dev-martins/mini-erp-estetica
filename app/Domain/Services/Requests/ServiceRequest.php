@@ -17,6 +17,7 @@ class ServiceRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:120'],
             'duration_min' => ['required', 'integer', 'min:15', 'max:600'],
+            'min_interval_hours' => ['nullable', 'integer', 'min:0', 'max:168'],
             'list_price' => ['required', 'numeric', 'min:0'],
             'kit_id' => ['nullable', 'exists:service_kits,id'],
             'active' => ['sometimes', 'boolean'],
