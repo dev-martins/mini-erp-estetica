@@ -2,6 +2,7 @@
 
 namespace App\Domain\Appointments\Controllers;
 
+use Carbon\CarbonImmutable;
 use App\Domain\Appointments\DTOs\AppointmentData;
 use App\Domain\Appointments\Models\Appointment;
 use App\Domain\Appointments\Requests\AppointmentRequest;
@@ -23,11 +24,18 @@ class AppointmentController extends Controller
         $this->authorize('viewAny', Appointment::class);
 
         $appointments = $this->service->list(
-            filters: $request->only(['from', 'to', 'professional_id']),
+            filters: $request->only(['from', 'to', 'professional_id', 'client_id']),
             perPage: $request->integer('per_page', 20)
         );
 
-        return AppointmentResource::collection($appointments);
+        $metricsDate = $this->resolveMetricsDate($request);
+        $metrics = $this->service->metricsForDate($metricsDate);
+
+        return AppointmentResource::collection($appointments)->additional([
+            'extra' => [
+                'metrics' => $metrics,
+            ],
+        ]);
     }
 
     public function store(AppointmentRequest $request)
@@ -50,7 +58,7 @@ class AppointmentController extends Controller
 
     public function update(AppointmentRequest $request, Appointment $appointment)
     {
-        $updated = $this->service->update($appointment, AppointmentData::fromRequest($request));
+        $updated = $this->service->update($appointment, AppointmentData::fromRequest($request), $request->user());
 
         return AppointmentResource::make(
             $updated->load(['client', 'professional.user', 'service', 'clientPackage.package.service'])
@@ -72,8 +80,23 @@ class AppointmentController extends Controller
             'status' => ['required', 'in:pending,confirmed,cancelled,no_show,completed'],
         ]);
 
-        $updated = $this->service->setStatus($appointment, $validated['status']);
+        $updated = $this->service->setStatus($appointment, $validated['status'], $request->user());
 
         return AppointmentResource::make($updated);
+    }
+
+    private function resolveMetricsDate(Request $request): CarbonImmutable
+    {
+        $dateInput = $request->input('for_date');
+
+        if (! $dateInput) {
+            return CarbonImmutable::now();
+        }
+
+        try {
+            return CarbonImmutable::parse($dateInput);
+        } catch (\Throwable) {
+            return CarbonImmutable::now();
+        }
     }
 }

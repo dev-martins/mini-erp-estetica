@@ -23,6 +23,8 @@ class AppointmentResource extends JsonResource
             'service' => $this->whenLoaded('service', fn () => [
                 'id' => $this->service->id,
                 'name' => $this->service->name,
+                'list_price' => $this->service->list_price,
+                'duration_min' => $this->service->duration_min,
             ]),
             'client_package' => $this->whenLoaded('clientPackage', fn () => [
                 'id' => $this->clientPackage->id,
@@ -37,13 +39,22 @@ class AppointmentResource extends JsonResource
             'room_id' => $this->room_id,
             'equipment_id' => $this->equipment_id,
             'scheduled_at' => $this->scheduled_at?->toAtomString(),
+            'scheduled_at_local' => $this->scheduled_at
+                ? $this->scheduled_at->copy()->setTimezone(config('app.timezone'))->toAtomString()
+                : null,
             'duration_min' => $this->duration_min,
             'status' => $this->status,
             'source' => $this->source,
             'notes' => $this->notes,
             'package_session_number' => $this->package_session_number,
             'started_at' => $this->started_at?->toAtomString(),
+            'started_at_local' => $this->started_at
+                ? $this->started_at->copy()->setTimezone(config('app.timezone'))->toAtomString()
+                : null,
             'ended_at' => $this->ended_at?->toAtomString(),
+            'ended_at_local' => $this->ended_at
+                ? $this->ended_at->copy()->setTimezone(config('app.timezone'))->toAtomString()
+                : null,
             'created_at' => $this->created_at?->toAtomString(),
         ];
     }

@@ -36,18 +36,60 @@
             <div class="spinner-border text-primary" role="status" />
           </div>
           <template v-else>
+            <p v-if="statusUpdateError" class="text-danger small mb-3">{{ statusUpdateError }}</p>
             <div
               v-for="appointment in upcoming"
               :key="appointment.id"
-              class="d-flex flex-column gap-1 border rounded-3 p-3 mb-2"
+              class="d-flex flex-column gap-2 border rounded-3 p-3 mb-2"
             >
-              <div class="d-flex justify-content-between">
-                <span class="fw-semibold">{{ appointment.client?.full_name ?? 'Cliente' }}</span>
-                <span class="badge text-bg-primary">{{ appointment.service?.name ?? 'Servico' }}</span>
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <div class="d-flex flex-column">
+                  <span class="fw-semibold">{{ appointment.client?.full_name ?? 'Cliente' }}</span>
+                  <small class="text-body-secondary">
+                    {{ appointment.when }} - {{ appointment.professional?.display_name ?? 'Equipe' }}
+                  </small>
+                </div>
+                <div class="d-flex flex-column align-items-end gap-2">
+                  <span class="badge" :class="`text-bg-${getStatusVariant(appointment.status)}`">
+                    {{ getStatusLabel(appointment.status) }}
+                  </span>
+                  <span class="badge text-bg-primary">{{ appointment.service?.name ?? 'Servico' }}</span>
+                  <small
+                    v-if="appointment.sessionProgress"
+                    class="text-body-secondary fw-semibold text-end"
+                  >
+                    {{ appointment.sessionProgress }}
+                  </small>
+                </div>
               </div>
-              <small class="text-body-secondary">
-                {{ appointment.when }} - {{ appointment.professional?.display_name ?? 'Equipe' }}
-              </small>
+              <div class="d-flex flex-wrap gap-2 mt-1">
+                <button
+                  class="btn btn-outline-success btn-sm"
+                  type="button"
+                  :disabled="updatingStatusId === appointment.id || appointment.status === 'completed'"
+                  @click="markAttendance(appointment.id, 'completed')"
+                >
+                  <span
+                    v-if="updatingStatusId === appointment.id && appointment.status !== 'completed'"
+                    class="spinner-border spinner-border-sm me-2"
+                    role="status"
+                  />
+                  Compareceu
+                </button>
+                <button
+                  class="btn btn-outline-danger btn-sm"
+                  type="button"
+                  :disabled="updatingStatusId === appointment.id || appointment.status === 'no_show'"
+                  @click="markAttendance(appointment.id, 'no_show')"
+                >
+                  <span
+                    v-if="updatingStatusId === appointment.id && appointment.status !== 'no_show'"
+                    class="spinner-border spinner-border-sm me-2"
+                    role="status"
+                  />
+                  No-show
+                </button>
+              </div>
             </div>
             <p v-if="!upcoming.length" class="text-body-secondary mb-0">
               Sem sessoes futuras programadas.
@@ -60,15 +102,15 @@
           <div class="d-flex flex-wrap gap-3">
             <div class="flex-fill">
               <p class="text-body-secondary small mb-1">Ocupacao</p>
-              <span class="fs-4 fw-bold text-primary">{{ kpis.occupancy }}%</span>
+              <span class="fs-4 fw-bold text-primary">{{ formatPercent(kpis.occupancy) }}%</span>
             </div>
             <div class="flex-fill">
               <p class="text-body-secondary small mb-1">No-show</p>
-              <span class="fs-4 fw-bold text-danger">{{ kpis.noShow }}%</span>
+              <span class="fs-4 fw-bold text-danger">{{ formatPercent(kpis.noShow) }}%</span>
             </div>
             <div class="flex-fill">
               <p class="text-body-secondary small mb-1">Ticket medio</p>
-              <span class="fs-4 fw-bold text-success">R$ {{ kpis.ticket }}</span>
+              <span class="fs-4 fw-bold text-success">R$ {{ formatCurrency(kpis.ticket) }}</span>
             </div>
           </div>
         </div>
@@ -84,7 +126,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -95,11 +137,40 @@ import http from '../services/http';
 const loading = ref(false);
 const appointments = ref([]);
 const showNewAppointment = ref(false);
+const updatingStatusId = ref(null);
+const statusUpdateError = ref('');
 
 const kpis = ref({
   occupancy: 0,
   noShow: 0,
-  ticket: '0,00',
+  ticket: 0,
+});
+
+const STATUS_LABELS = {
+  pending: 'Pendente',
+  confirmed: 'Confirmado',
+  completed: 'Concluído',
+  no_show: 'No-show',
+  cancelled: 'Cancelado',
+};
+
+const STATUS_VARIANTS = {
+  pending: 'warning',
+  confirmed: 'primary',
+  completed: 'success',
+  no_show: 'danger',
+  cancelled: 'secondary',
+};
+
+const UPCOMING_ACCEPTED_STATUSES = ['pending', 'confirmed', 'rescheduled'];
+const KPI_ACCEPTED_STATUSES = new Set(['pending', 'confirmed', 'completed', 'no_show']);
+
+const upcomingFormatter = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'short',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
 });
 
 const calendarOptions = computed(() => ({
@@ -114,36 +185,44 @@ const calendarOptions = computed(() => ({
   events: appointments.value.map((item) => ({
     id: item.id,
     title: `${item.client?.full_name ?? 'Cliente'} - ${item.service?.name ?? ''}`,
-    start: item.scheduled_at,
-    end:
-      item.ended_at ??
-      new Date(new Date(item.scheduled_at).getTime() + (item.duration_min ?? 60) * 60000).toISOString(),
+    start: (() => {
+      const raw = item.scheduled_at_local ?? item.scheduled_at;
+      const startDate = normalizeScheduledDate(raw);
+      return startDate ? startDate.toISOString() : raw;
+    })(),
+    end: (() => {
+      const endRaw = item.ended_at_local ?? item.ended_at;
+      const endDate = normalizeScheduledDate(endRaw);
+      if (endDate) {
+        return endDate.toISOString();
+      }
+
+      const startRaw = item.scheduled_at_local ?? item.scheduled_at;
+      const fallbackStart = normalizeScheduledDate(startRaw);
+      if (!fallbackStart) {
+        return null;
+      }
+
+      return new Date(fallbackStart.getTime() + (resolveDuration(item) ?? 60) * 60000).toISOString();
+    })(),
   })),
 }));
 
-const UPCOMING_ACCEPTED_STATUSES = ['pending', 'confirmed', 'rescheduled'];
-const upcomingFormatter = new Intl.DateTimeFormat('pt-BR', {
-  weekday: 'short',
-  day: '2-digit',
-  month: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
 const upcoming = computed(() => {
   const now = new Date();
+  const toleranceMs = 5 * 60 * 1000;
 
   return appointments.value
     .map((item) => ({
       ...item,
-      scheduledDate: item.scheduled_at ? new Date(item.scheduled_at) : null,
-      statusKey: String(item.status ?? '').toLowerCase(),
+      scheduledDate: normalizeScheduledDate(item.scheduled_at_local ?? item.scheduled_at),
+      statusKey: String(item.status ?? '').trim().toLowerCase(),
     }))
     .filter(
       (item) =>
         item.scheduledDate instanceof Date &&
         !Number.isNaN(item.scheduledDate?.getTime?.()) &&
-        item.scheduledDate >= now &&
+        item.scheduledDate.getTime() >= now.getTime() - toleranceMs &&
         UPCOMING_ACCEPTED_STATUSES.includes(item.statusKey),
     )
     .sort((a, b) => a.scheduledDate - b.scheduledDate)
@@ -151,17 +230,198 @@ const upcoming = computed(() => {
     .map((item) => ({
       ...item,
       when: upcomingFormatter.format(item.scheduledDate),
+      sessionProgress: getSessionProgress(item),
     }));
 });
 
 async function fetchData() {
   loading.value = true;
   try {
-    const { data } = await http.get('/appointments', { params: { per_page: 100 } });
+    statusUpdateError.value = '';
+    const forDate = todayIso();
+    const { data } = await http.get('/appointments', {
+      params: { per_page: 100, for_date: forDate, from: forDate },
+    });
     appointments.value = data.data ?? [];
+    const metrics = data.extra?.metrics ?? null;
+    if (metrics) {
+      applyKpis(metrics);
+    } else {
+      applyKpis(calculateLocalKpis(appointments.value, forDate));
+    }
   } finally {
     loading.value = false;
   }
+}
+
+function applyKpis(metrics) {
+  kpis.value = {
+    occupancy: Number(metrics.occupancy_rate ?? metrics.occupancy ?? 0),
+    noShow: Number(metrics.no_show_rate ?? metrics.noShow ?? 0),
+    ticket: Number(metrics.avg_ticket ?? metrics.ticket ?? 0),
+  };
+}
+
+function calculateLocalKpis(list, isoDate) {
+  const sameDay = list.filter((item) => extractIsoDate(item.scheduled_at_local ?? item.scheduled_at) === isoDate);
+  const relevant = sameDay.filter((item) => KPI_ACCEPTED_STATUSES.has(String(item.status ?? '').toLowerCase()));
+  const totalRelevant = relevant.length;
+
+  const totalMinutes = relevant.reduce(
+    (total, item) => total + resolveDuration(item),
+    0,
+  );
+
+  const professionalIds = new Set(
+    relevant.map((item) => item.professional_id).filter((value) => value !== null && value !== undefined),
+  );
+
+  const professionalsCount = professionalIds.size || (totalMinutes > 0 ? 1 : 0);
+  const capacityMinutes = professionalsCount * 8 * 60;
+  const occupancyRate = capacityMinutes > 0 ? Math.min(100, (totalMinutes / capacityMinutes) * 100) : 0;
+
+  const noShowCount = relevant.filter((item) => String(item.status).toLowerCase() === 'no_show').length;
+  const noShowRate = totalRelevant > 0 ? (noShowCount / totalRelevant) * 100 : 0;
+
+  const ticketValues = relevant
+    .map((item) => Number(item.service?.list_price ?? 0))
+    .filter((value) => !Number.isNaN(value) && value > 0);
+
+  const avgTicket =
+    ticketValues.length > 0
+      ? ticketValues.reduce((total, value) => total + value, 0) / ticketValues.length
+      : 0;
+
+  return {
+    occupancy_rate: Number(occupancyRate.toFixed(1)),
+    no_show_rate: Number(noShowRate.toFixed(1)),
+    avg_ticket: Number(avgTicket.toFixed(2)),
+  };
+}
+
+function resolveDuration(item) {
+  if (item?.duration_min) {
+    return Number(item.duration_min);
+  }
+  if (item?.service?.duration_min) {
+    return Number(item.service.duration_min);
+  }
+  return 60;
+}
+
+async function markAttendance(appointmentId, status) {
+  if (updatingStatusId.value === appointmentId) {
+    return;
+  }
+
+  statusUpdateError.value = '';
+  updatingStatusId.value = appointmentId;
+
+  try {
+    await http.patch(`/appointments/${appointmentId}/status`, { status });
+    await fetchData();
+  } catch (error) {
+    statusUpdateError.value =
+      error.response?.data?.message ?? 'Não foi possível atualizar o status do atendimento.';
+  } finally {
+    updatingStatusId.value = null;
+  }
+}
+
+function getStatusLabel(status) {
+  return STATUS_LABELS[String(status ?? '').toLowerCase()] ?? 'Indefinido';
+}
+
+function getStatusVariant(status) {
+  return STATUS_VARIANTS[String(status ?? '').toLowerCase()] ?? 'secondary';
+}
+
+function getSessionProgress(appointment) {
+  const current = Number(appointment.package_session_number ?? 0);
+  const total = Number(appointment.client_package?.package?.sessions_count ?? 0);
+
+  if (!current || !total) {
+    return null;
+  }
+
+  return `${current}/${total} sessões`;
+}
+function formatPercent(value) {
+  return Number(value ?? 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  });
+}
+
+function formatCurrency(value) {
+  return Number(value ?? 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function extractIsoDate(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  return value.slice(0, 10);
+}
+
+function todayIso() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeScheduledDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return new Date(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const hasTimezone = /([+-]\d{2}:\d{2}|Z)$/i.test(trimmed);
+    if (hasTimezone) {
+      const date = new Date(trimmed);
+      if (!Number.isNaN(date.getTime())) {
+        return date;
+      }
+    }
+
+    const normalized = trimmed.replace(' ', 'T');
+    const [datePart, timePartRaw = '00:00'] = normalized.split('T');
+    if (!datePart) {
+      return null;
+    }
+
+    const timePart = timePartRaw.split('.')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour = 0, minute = 0] = timePart.split(':').map(Number);
+
+    if ([year, month, day].some((valuePart) => Number.isNaN(valuePart))) {
+      return null;
+    }
+
+    return new Date(year, (month ?? 1) - 1, day, hour, minute);
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 async function onAppointmentCreated() {
@@ -171,5 +431,10 @@ async function onAppointmentCreated() {
 
 onMounted(() => {
   fetchData();
+  window.addEventListener('appointments:refresh', fetchData);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('appointments:refresh', fetchData);
 });
 </script>

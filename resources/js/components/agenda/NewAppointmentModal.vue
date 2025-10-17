@@ -6,8 +6,8 @@
       tabindex="-1"
       style="background-color: rgba(16, 24, 40, 0.4)"
     >
-      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl modal-fullscreen-sm-down">
+        <div class="modal-content modal-content-wide">
           <form @submit.prevent="handleSubmit" novalidate>
             <div class="modal-header">
               <h5 class="modal-title">Novo agendamento</h5>
@@ -16,7 +16,7 @@
 
             <div class="modal-body">
               <div class="row g-3">
-                <div class="col-12">
+                <div class="col-12 col-lg-6">
                   <label class="form-label text-body-secondary small">Cliente</label>
                   <select v-model="form.client_id" class="form-select" required>
                     <option value="" disabled>Selecione o cliente</option>
@@ -27,7 +27,7 @@
                   <small v-if="errors.client_id" class="text-danger">{{ errors.client_id }}</small>
                 </div>
 
-                <div class="col-12">
+                <div class="col-12 col-lg-6">
                   <label class="form-label text-body-secondary small">Servico</label>
                   <select v-model="form.service_id" class="form-select" required>
                     <option value="" disabled>Selecione o servico</option>
@@ -38,7 +38,7 @@
                   <small v-if="errors.service_id" class="text-danger">{{ errors.service_id }}</small>
                 </div>
 
-                <div class="col-12">
+                <div class="col-12 col-lg-6">
                   <label class="form-label text-body-secondary small">Pacote</label>
                   <select
                     v-model="form.client_package_id"
@@ -71,7 +71,7 @@
                   <small v-if="errors.client_package_id" class="text-danger">{{ errors.client_package_id }}</small>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6 col-xl-4">
                   <label class="form-label text-body-secondary small">Profissional</label>
                   <select v-model="form.professional_id" class="form-select" required>
                     <option value="" disabled>Selecione</option>
@@ -83,7 +83,7 @@
                   <small v-if="errors.professional_id" class="text-danger">{{ errors.professional_id }}</small>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6 col-xl-4">
                   <label class="form-label text-body-secondary small">Sala (opcional)</label>
                   <select v-model="form.room_id" class="form-select">
                     <option value="">Sem sala vinculada</option>
@@ -93,7 +93,7 @@
                   </select>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6 col-xl-4">
                   <label class="form-label text-body-secondary small">Equipamento (opcional)</label>
                   <select v-model="form.equipment_id" class="form-select">
                     <option value="">Nenhum equipamento</option>
@@ -103,7 +103,7 @@
                   </select>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6 col-xl-4">
                   <label class="form-label text-body-secondary small">Data e hora</label>
                   <input
                     v-model="form.scheduled_at"
@@ -120,7 +120,7 @@
                   </small>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-12 col-md-6 col-xl-4">
                   <label class="form-label text-body-secondary small">Duracao (min)</label>
                   <input
                     v-model.number="form.duration_min"
@@ -132,7 +132,7 @@
                   />
                 </div>
 
-                <div class="col-12">
+                <div class="col-12 col-xl-8">
                   <label class="form-label text-body-secondary small">Observacoes</label>
                   <textarea
                     v-model="form.notes"
@@ -524,3 +524,20 @@ async function handleSubmit() {
   close();
 }
 </script>
+
+<style scoped>
+.modal-content-wide {
+  border-radius: 1rem;
+}
+
+.modal-content-wide .modal-body {
+  max-height: calc(85vh - 8rem);
+  overflow-y: auto;
+}
+
+@media (max-width: 767.98px) {
+  .modal-content-wide .modal-body {
+    max-height: calc(100vh - 6rem);
+  }
+}
+</style>

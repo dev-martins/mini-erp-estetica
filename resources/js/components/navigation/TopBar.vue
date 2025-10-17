@@ -8,7 +8,7 @@
       >
         <i class="fa-solid fa-bars"></i>
       </button>
-      <span class="navbar-brand mb-0 h1">Estética<span class="text-primary">ERP</span></span>
+      <span class="navbar-brand mb-0 h1">GerenciaFÃ¡cil<span class="text-primary">ERP</span></span>
       <div class="ms-auto d-flex align-items-center gap-3">
         <div v-if="user" class="text-end d-none d-md-block">
           <span class="d-block fw-semibold">{{ user.name }}</span>

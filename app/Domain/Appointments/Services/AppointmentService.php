@@ -10,6 +10,8 @@ use App\Domain\Inventory\Services\StockMovementService;
 use App\Domain\Sales\Models\ClientPackage;
 use App\Domain\Sales\Services\ClientPackageService;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +28,11 @@ class AppointmentService
     public function list(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         return $this->repository->paginate($filters, $perPage);
+    }
+
+    public function metricsForDate(CarbonInterface $date): array
+    {
+        return $this->repository->metricsForDate($date);
     }
 
     public function create(AppointmentData $data): Appointment
@@ -71,9 +78,11 @@ class AppointmentService
         });
     }
 
-    public function update(Appointment $appointment, AppointmentData $data): Appointment
+    public function update(Appointment $appointment, AppointmentData $data, ?User $actor = null): Appointment
     {
-        return DB::transaction(function () use ($appointment, $data): Appointment {
+        return DB::transaction(function () use ($appointment, $data, $actor): Appointment {
+            $this->assertStaffCanModify($actor, 'reschedule');
+
             if ($appointment->client_package_id !== $data->clientPackageId) {
                 throw ValidationException::withMessages([
                     'client_package_id' => 'Nao e possivel alterar o pacote vinculado ao agendamento.',
@@ -87,6 +96,11 @@ class AppointmentService
             }
 
             $scheduledAt = CarbonImmutable::parse($data->scheduledAt);
+
+            $originalScheduled = $appointment->scheduled_at?->copy()->toImmutable();
+            if ($originalScheduled && ! $originalScheduled->equalTo($scheduledAt)) {
+                $this->ensureMinimumNotice($appointment, 'reschedule', $actor);
+            }
 
             $this->assertProfessionalAvailability($data, $scheduledAt, $appointment);
 
@@ -114,9 +128,9 @@ class AppointmentService
         });
     }
 
-    public function setStatus(Appointment $appointment, string $status): Appointment
+    public function setStatus(Appointment $appointment, string $status, ?User $actor = null): Appointment
     {
-        return DB::transaction(function () use ($appointment, $status): Appointment {
+        return DB::transaction(function () use ($appointment, $status, $actor): Appointment {
             $originalStatus = $appointment->status;
 
             if ($status === $originalStatus) {
@@ -147,6 +161,11 @@ class AppointmentService
                 $this->packages->reReserveSession($clientPackage);
             }
 
+            if ($status === 'cancelled') {
+                $this->assertStaffCanModify($actor, 'cancel');
+                $this->ensureMinimumNotice($appointment, 'cancel', $actor);
+            }
+
             $updated = $this->repository->updateStatus($appointment, $status)->load([
                 'client',
                 'professional.user',
@@ -154,6 +173,13 @@ class AppointmentService
                 'sessionItems',
                 'clientPackage.package.service',
             ]);
+
+            if (
+                in_array($status, ['pending', 'confirmed', 'completed', 'no_show'], true)
+                && $updated->attendance_alerted_at !== null
+            ) {
+                $updated->forceFill(['attendance_alerted_at' => null])->save();
+            }
 
             if ($status === 'completed') {
                 $this->consumeKitStock($updated);
@@ -261,6 +287,51 @@ class AppointmentService
                     ),
                 ]);
             }
+        }
+    }
+
+    private function assertStaffCanModify(?User $actor, string $action): void
+    {
+        if ($actor === null) {
+            return;
+        }
+
+        if (in_array($actor->role, ['owner', 'reception'], true)) {
+            return;
+        }
+
+        $field = $action === 'cancel' ? 'status' : 'scheduled_at';
+        $messages = [
+            'cancel' => 'Somente a recepcao ou a direcao podem cancelar um agendamento.',
+            'reschedule' => 'Somente a recepcao ou a direcao podem remarcar um agendamento.',
+        ];
+
+        throw ValidationException::withMessages([
+            $field => $messages[$action] ?? 'Acao nao autorizada para o seu perfil.',
+        ]);
+    }
+
+    private function ensureMinimumNotice(Appointment $appointment, string $action, ?User $actor): void
+    {
+        if ($actor !== null && in_array($actor->role, ['owner', 'reception'], true)) {
+            return;
+        }
+
+        $scheduledAt = $appointment->scheduled_at?->copy()->toImmutable();
+        if (! $scheduledAt) {
+            return;
+        }
+
+        if ($scheduledAt->lessThanOrEqualTo(CarbonImmutable::now()->addDay())) {
+            $field = $action === 'cancel' ? 'status' : 'scheduled_at';
+            $messages = [
+                'cancel' => 'Cancelamentos so podem ser feitos com antecedencia minima de 24 horas.',
+                'reschedule' => 'Remarcacoes so podem ser feitas com antecedencia minima de 24 horas.',
+            ];
+
+            throw ValidationException::withMessages([
+                $field => $messages[$action] ?? 'Acao permitida apenas com antecedencia minima de 24 horas.',
+            ]);
         }
     }
 }

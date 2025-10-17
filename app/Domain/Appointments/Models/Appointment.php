@@ -38,6 +38,7 @@ class Appointment extends Model
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
         'package_session_number' => 'integer',
+        'attendance_alerted_at' => 'datetime',
     ];
 
     public function client(): BelongsTo
