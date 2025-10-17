@@ -20,6 +20,7 @@ class ServiceResource extends JsonResource
             'name' => $this->name,
             'category' => $this->category,
             'duration_min' => $this->duration_min,
+            'min_interval_hours' => $this->min_interval_hours,
             'list_price' => (float) $this->list_price,
             'kit_id' => $this->kit_id,
             'active' => (bool) $this->active,

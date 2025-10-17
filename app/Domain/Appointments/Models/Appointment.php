@@ -4,6 +4,7 @@ namespace App\Domain\Appointments\Models;
 
 use App\Domain\Clients\Models\Client;
 use App\Domain\Services\Models\Service;
+use App\Domain\Sales\Models\ClientPackage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,8 @@ class Appointment extends Model
         'room_id',
         'equipment_id',
         'service_id',
+        'client_package_id',
+        'package_session_number',
         'scheduled_at',
         'duration_min',
         'status',
@@ -34,6 +37,8 @@ class Appointment extends Model
         'scheduled_at' => 'datetime',
         'started_at' => 'datetime',
         'ended_at' => 'datetime',
+        'package_session_number' => 'integer',
+        'attendance_alerted_at' => 'datetime',
     ];
 
     public function client(): BelongsTo
@@ -59,6 +64,11 @@ class Appointment extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function clientPackage(): BelongsTo
+    {
+        return $this->belongsTo(ClientPackage::class);
     }
 
     public function sessionItems(): HasMany

@@ -16,6 +16,7 @@ class Service extends Model
         'name',
         'category',
         'duration_min',
+        'min_interval_hours',
         'list_price',
         'kit_id',
         'active',
@@ -24,6 +25,7 @@ class Service extends Model
 
     protected $casts = [
         'duration_min' => 'integer',
+        'min_interval_hours' => 'integer',
         'list_price' => 'float',
         'active' => 'boolean',
     ];

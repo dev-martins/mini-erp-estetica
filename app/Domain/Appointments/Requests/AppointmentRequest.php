@@ -16,6 +16,10 @@ class AppointmentRequest extends FormRequest
     {
         return [
             'client_id' => ['required', 'exists:clients,id'],
+            'client_package_id' => [
+                'required',
+                Rule::exists('client_packages', 'id')->where(fn ($query) => $query->where('client_id', $this->input('client_id'))),
+            ],
             'professional_id' => ['required', 'exists:professionals,id'],
             'room_id' => ['nullable', 'exists:rooms,id'],
             'equipment_id' => ['nullable', 'exists:equipments,id'],
