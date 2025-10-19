@@ -2,6 +2,7 @@
 
 namespace App\Domain\Appointments\Controllers;
 
+use App\Domain\Appointments\DTOs\AppointmentData;
 use App\Domain\Appointments\Models\Appointment;
 use App\Domain\Appointments\Requests\ClientAppointmentRescheduleRequest;
 use App\Domain\Appointments\Requests\ClientAppointmentStoreRequest;
@@ -14,7 +15,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
-use App\Domain\Appointments\DTOs\AppointmentData;
 
 class ClientAppointmentController extends Controller
 {
@@ -24,7 +24,7 @@ class ClientAppointmentController extends Controller
 
     public function index(Request $request)
     {
-        /** @var \App\Domain\Clients\Models\Client $client */
+        /** @var Client $client */
         $client = $request->user('client');
 
         $filters = [
@@ -47,7 +47,7 @@ class ClientAppointmentController extends Controller
 
     public function store(ClientAppointmentStoreRequest $request)
     {
-        /** @var \App\Domain\Clients\Models\Client $client */
+        /** @var Client $client */
         $client = $request->user('client');
 
         $package = ClientPackage::query()
@@ -93,9 +93,11 @@ class ClientAppointmentController extends Controller
         ClientAppointmentRescheduleRequest $request,
         Appointment $appointment
     ) {
-        /** @var \App\Domain\Clients\Models\Client $client */
+        /** @var Client $client */
         $client = $request->user('client');
         $this->ensureOwnership($appointment, $client);
+
+        $this->ensureClientCanModify($appointment, 'scheduled_at');
 
         if (! in_array($appointment->status, ['pending', 'confirmed'], true)) {
             throw ValidationException::withMessages([
@@ -126,9 +128,11 @@ class ClientAppointmentController extends Controller
 
     public function cancel(Request $request, Appointment $appointment)
     {
-        /** @var \App\Domain\Clients\Models\Client $client */
+        /** @var Client $client */
         $client = $request->user('client');
         $this->ensureOwnership($appointment, $client);
+
+        $this->ensureClientCanModify($appointment, 'status');
 
         if (! in_array($appointment->status, ['pending', 'confirmed'], true)) {
             throw ValidationException::withMessages([
@@ -145,6 +149,24 @@ class ClientAppointmentController extends Controller
     {
         if ($appointment->client_id !== $client->id) {
             abort(Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    protected function ensureClientCanModify(Appointment $appointment, string $attribute): void
+    {
+        if (! $appointment->scheduled_at) {
+            return;
+        }
+
+        if ($appointment->scheduled_at->lessThanOrEqualTo(now()->addDay())) {
+            $field = $attribute === 'status' ? 'status' : 'scheduled_at';
+            $message = $attribute === 'status'
+                ? 'Cancelamentos só podem ser realizados com pelo menos 24 horas de antecedência.'
+                : 'Reagendamentos só podem ser realizados com pelo menos 24 horas de antecedência.';
+
+            throw ValidationException::withMessages([
+                $field => $message,
+            ]);
         }
     }
 }

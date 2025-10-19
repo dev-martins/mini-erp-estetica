@@ -20,7 +20,7 @@ class ClientSeeder extends Seeder
         $clients = collect(range(1, 10))->map(function () use ($faker) {
             $createdAt = $faker->dateTimeBetween('-6 months', 'now -10 days');
             $email = $faker->unique()->safeEmail();
-            $phone = $faker->unique()->numerify("5599########");
+            $phone = $faker->unique()->numerify('5599########');
             $verifiedAt = now()->subDays(random_int(5, 30));
 
             return Client::updateOrCreate(
@@ -31,13 +31,13 @@ class ClientSeeder extends Seeder
                     'birthdate' => $faker->dateTimeBetween('-40 years', '-18 years'),
                     'instagram' => '@' . $faker->userName(),
                     'consent_marketing' => $faker->boolean(70),
-                    'source' => $faker->randomElement(['Instagram', 'IndicaÃ§Ã£o', 'Google Meu NegÃ³cio']),
+                    'source' => $faker->randomElement(['Instagram', 'Indicação', 'Google Meu Negócio']),
                     'last_appointment_at' => $createdAt,
                     'tags' => Arr::random([
                         ['VIP', 'Fidelizada'],
                         ['Potencial', 'Massagem'],
                         ['Laser', 'Recorrente'],
-                        ['RecÃ©m-chegada'],
+                        ['Recém-chegada'],
                     ]),
                     'password' => Hash::make('senha123'),
                     'email_verified_at' => $verifiedAt,
@@ -53,7 +53,7 @@ class ClientSeeder extends Seeder
 
         $clients->each(function (Client $client) use ($faker) {
             Lead::updateOrCreate(
-                ['phone' => $client->phone ?? $faker->unique()->numerify("5599########")],
+                ['phone' => $client->phone ?? $faker->unique()->numerify('5599########')],
                 [
                     'name' => $client->full_name,
                     'email' => $client->email,
@@ -73,7 +73,7 @@ class ClientSeeder extends Seeder
                     'form_json' => [
                         'objetivo' => $faker->randomElement(['Reduzir medidas', 'Eliminar pelos', 'Relaxar']),
                         'alergias' => $faker->randomElement(['Nenhuma', 'Lactose', 'Frutos do mar']),
-                        'observacoes' => 'Cliente orientada sobre cuidados prÃ© e pÃ³s atendimento.',
+                        'observacoes' => 'Cliente orientada sobre cuidados pré e pós atendimento.',
                     ],
                     'signed_at' => now()->subDays(random_int(10, 60)),
                     'signer_name' => $client->full_name,
@@ -89,7 +89,7 @@ class ClientSeeder extends Seeder
                     'referred_by_client_id' => $clients[0]->id,
                 ],
                 [
-                    'channel' => 'IndicaÃ§Ã£o amiga',
+                    'channel' => 'Indicação amiga',
                 ]
             );
 
@@ -99,11 +99,11 @@ class ClientSeeder extends Seeder
                     'referred_by_client_id' => $clients[1]->id,
                 ],
                 [
-                    'channel' => 'Parceiro estÃºdio pilates',
+                    'channel' => 'Parceiro estúdio de pilates',
                 ]
             );
         }
 
-        $this->command?->info('Clientes, leads e prontuÃ¡rios gerados.');
+        $this->command?->info('Clientes, leads e prontuários gerados.');
     }
 }
