@@ -31,7 +31,46 @@
 
       <div class="col-12 col-lg-4">
         <div class="card card-mobile p-3 mb-3">
-          <h3 class="h6 fw-semibold mb-3">Proximos atendimentos</h3>
+          <div class="d-flex flex-column gap-2 gap-sm-0 flex-sm-row justify-content-between align-items-sm-center mb-3">
+            <div>
+              <h3 class="h6 fw-semibold mb-0">{{ upcomingTitle }}</h3>
+              <small v-if="filterHelperText" class="text-body-secondary">{{ filterHelperText }}</small>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <select
+                v-model="filterType"
+                class="form-select form-select-sm w-auto"
+                aria-label="Filtro de periodo"
+              >
+                <option value="">Proximos</option>
+                <option value="month">Mes</option>
+                <option value="week">Semana</option>
+                <option value="day">Dia</option>
+              </select>
+              <input
+                v-if="filterType === 'month'"
+                v-model="filterMonth"
+                type="month"
+                class="form-control form-control-sm w-auto"
+                aria-label="Selecionar mes"
+              />
+              <input
+                v-else-if="filterType === 'week' || filterType === 'day'"
+                v-model="filterDate"
+                type="date"
+                class="form-control form-control-sm w-auto"
+                aria-label="Selecionar dia"
+              />
+              <button
+                v-if="filterType"
+                type="button"
+                class="btn btn-link btn-sm text-decoration-none px-1"
+                @click="clearFilters"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
           <div v-if="loading" class="text-center py-5">
             <div class="spinner-border text-primary" role="status" />
           </div>
@@ -62,7 +101,7 @@
                   </small>
                 </div>
               </div>
-              <div class="d-flex flex-wrap gap-2 mt-1">
+              <div v-if="appointment.isPast" class="d-flex flex-wrap gap-2 mt-1">
                 <button
                   class="btn btn-outline-success btn-sm"
                   type="button"
@@ -126,7 +165,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -146,10 +185,15 @@ const kpis = ref({
   ticket: 0,
 });
 
+const initialTodayIso = todayIso();
+const filterType = ref('');
+const filterMonth = ref(initialTodayIso.slice(0, 7));
+const filterDate = ref(initialTodayIso);
+
 const STATUS_LABELS = {
   pending: 'Pendente',
   confirmed: 'Confirmado',
-  completed: 'Concluído',
+  completed: 'Concluido',
   no_show: 'No-show',
   cancelled: 'Cancelado',
 };
@@ -164,6 +208,124 @@ const STATUS_VARIANTS = {
 
 const UPCOMING_ACCEPTED_STATUSES = ['pending', 'confirmed', 'rescheduled'];
 const KPI_ACCEPTED_STATUSES = new Set(['pending', 'confirmed', 'completed', 'no_show']);
+
+watch(filterType, (type) => {
+  if (!type) {
+    return;
+  }
+
+  if (type === 'month' && !filterMonth.value) {
+    filterMonth.value = todayIso().slice(0, 7);
+  }
+
+  if ((type === 'week' || type === 'day') && !filterDate.value) {
+    filterDate.value = todayIso();
+  }
+});
+
+const filterRange = computed(() => {
+  const type = filterType.value;
+  if (!type) {
+    return null;
+  }
+
+  if (type === 'month') {
+    const [yearRaw, monthRaw] = String(filterMonth.value ?? '').split('-');
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+
+    if (!year || !month) {
+      return null;
+    }
+
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0);
+    end.setHours(23, 59, 59, 999);
+
+    return { type, start, end };
+  }
+
+  const [yearRaw, monthRaw, dayRaw] = String(filterDate.value ?? '').split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const base = new Date(year, month - 1, day);
+  base.setHours(0, 0, 0, 0);
+
+  if (type === 'day') {
+    const start = new Date(base);
+    const end = new Date(base);
+    end.setHours(23, 59, 59, 999);
+    return { type, start, end };
+  }
+
+  if (type === 'week') {
+    const start = new Date(base);
+    const dayOfWeek = start.getDay();
+    const distanceToMonday = (dayOfWeek + 6) % 7;
+    start.setDate(start.getDate() - distanceToMonday);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    return { type, start, end };
+  }
+
+  return null;
+});
+
+const upcomingTitle = computed(() => {
+  const type = filterType.value;
+  const range = filterRange.value;
+
+  if (!type || !range) {
+    return 'Proximos atendimentos';
+  }
+
+  if (type === 'month') {
+    const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'long' });
+    const monthLabel = formatter.format(range.start);
+    return `Agendamentos de ${capitalize(monthLabel)}`;
+  }
+
+  if (type === 'week') {
+    return `Agendamentos do dia ${formatDayMonth(range.start)} a ${formatDayMonth(range.end)}`;
+  }
+
+  if (type === 'day') {
+    return `Agendamentos do dia ${formatDayMonth(range.start)}`;
+  }
+
+  return 'Agendamentos filtrados';
+});
+
+const filterHelperText = computed(() => {
+  const type = filterType.value;
+  if (!type) {
+    return '';
+  }
+
+  if (!filterRange.value) {
+    return 'Selecione um periodo valido.';
+  }
+
+  if (type === 'month') {
+    return 'Mostrando ate 5 agendamentos do mes selecionado.';
+  }
+
+  if (type === 'week') {
+    return 'Mostrando ate 5 agendamentos da semana selecionada.';
+  }
+
+  return 'Mostrando ate 5 agendamentos do dia selecionado.';
+});
 
 const upcomingFormatter = new Intl.DateTimeFormat('pt-BR', {
   weekday: 'short',
@@ -211,8 +373,10 @@ const calendarOptions = computed(() => ({
 const upcoming = computed(() => {
   const now = new Date();
   const toleranceMs = 5 * 60 * 1000;
+  const range = filterRange.value;
+  const type = filterType.value;
 
-  return appointments.value
+  const normalized = appointments.value
     .map((item) => ({
       ...item,
       scheduledDate: normalizeScheduledDate(item.scheduled_at_local ?? item.scheduled_at),
@@ -222,17 +386,44 @@ const upcoming = computed(() => {
       (item) =>
         item.scheduledDate instanceof Date &&
         !Number.isNaN(item.scheduledDate?.getTime?.()) &&
-        item.scheduledDate.getTime() >= now.getTime() - toleranceMs &&
         UPCOMING_ACCEPTED_STATUSES.includes(item.statusKey),
-    )
+    );
+
+  let filtered = normalized;
+
+  if (type) {
+    if (!range) {
+      filtered = [];
+    } else {
+      filtered = normalized.filter(
+        (item) =>
+          item.scheduledDate.getTime() >= range.start.getTime() &&
+          item.scheduledDate.getTime() <= range.end.getTime(),
+      );
+    }
+  } else {
+    filtered = normalized.filter(
+      (item) => item.scheduledDate.getTime() >= now.getTime() - toleranceMs,
+    );
+  }
+
+  return filtered
     .sort((a, b) => a.scheduledDate - b.scheduledDate)
     .slice(0, 5)
     .map((item) => ({
       ...item,
       when: upcomingFormatter.format(item.scheduledDate),
       sessionProgress: getSessionProgress(item),
+      isPast: item.scheduledDate.getTime() <= now.getTime(),
     }));
 });
+
+function clearFilters() {
+  filterType.value = '';
+  const today = todayIso();
+  filterMonth.value = today.slice(0, 7);
+  filterDate.value = today;
+}
 
 async function fetchData() {
   loading.value = true;
@@ -322,7 +513,7 @@ async function markAttendance(appointmentId, status) {
     await fetchData();
   } catch (error) {
     statusUpdateError.value =
-      error.response?.data?.message ?? 'Não foi possível atualizar o status do atendimento.';
+      error.response?.data?.message ?? 'Nao foi possivel atualizar o status do atendimento.';
   } finally {
     updatingStatusId.value = null;
   }
@@ -344,7 +535,25 @@ function getSessionProgress(appointment) {
     return null;
   }
 
-  return `${current}/${total} sessões`;
+  return `${current}/${total} sessoes`;
+}
+function capitalize(value) {
+  if (!value) {
+    return '';
+  }
+
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function formatDayMonth(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
 }
 function formatPercent(value) {
   return Number(value ?? 0).toLocaleString('pt-BR', {
@@ -438,3 +647,4 @@ onBeforeUnmount(() => {
   window.removeEventListener('appointments:refresh', fetchData);
 });
 </script>
+
