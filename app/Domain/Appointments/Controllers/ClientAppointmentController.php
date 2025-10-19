@@ -61,6 +61,12 @@ class ClientAppointmentController extends Controller
             ]);
         }
 
+        if ($package->expiry_at && CarbonImmutable::now()->greaterThan(CarbonImmutable::parse($package->expiry_at))) {
+            throw ValidationException::withMessages([
+                'client_package_id' => 'Este pacote está expirado. Procure a clínica para renová-lo.',
+            ]);
+        }
+
         $scheduledAt = CarbonImmutable::parse($request->input('scheduled_at'));
         if ($package->expiry_at && $scheduledAt->greaterThan(CarbonImmutable::parse($package->expiry_at))) {
             throw ValidationException::withMessages([
@@ -105,7 +111,19 @@ class ClientAppointmentController extends Controller
             ]);
         }
 
+        $package = $appointment->clientPackage;
+        if ($package && $package->expiry_at && CarbonImmutable::now()->greaterThan(CarbonImmutable::parse($package->expiry_at))) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => 'O pacote associado a este atendimento está expirado. Procure a clínica.',
+            ]);
+        }
+
         $scheduledAt = CarbonImmutable::parse($request->input('scheduled_at'));
+        if ($package && $package->expiry_at && $scheduledAt->greaterThan(CarbonImmutable::parse($package->expiry_at))) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => 'A nova data ultrapassa a validade do pacote associado.',
+            ]);
+        }
 
         $data = new AppointmentData(
             clientId: $client->id,

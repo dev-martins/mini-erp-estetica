@@ -17,11 +17,18 @@ class ClientPackageResource extends JsonResource
             'package' => [
                 'id' => $this->package?->id,
                 'name' => $this->package?->name,
-                'service_id' => $this->package?->service_id,
+                'description' => $this->package?->description,
                 'sessions_count' => $this->package?->sessions_count,
-                'price' => $this->package?->price,
+                'price' => (float) $this->package?->price,
                 'min_interval_hours' => $this->package?->min_interval_hours,
-                'service_min_interval_hours' => $this->package?->service?->min_interval_hours,
+                'expiry_days' => $this->package?->expiry_days,
+                'service' => $this->package?->service ? [
+                    'id' => $this->package->service->id,
+                    'name' => $this->package->service->name,
+                    'category' => $this->package->service->category,
+                    'duration_min' => $this->package->service->duration_min,
+                    'min_interval_hours' => $this->package->service->min_interval_hours,
+                ] : null,
             ],
         ];
     }

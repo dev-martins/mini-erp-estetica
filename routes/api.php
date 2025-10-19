@@ -2,6 +2,7 @@
 
 use App\Domain\Appointments\Controllers\AppointmentController;
 use App\Domain\Appointments\Controllers\ClientAppointmentController;
+use App\Domain\Appointments\Controllers\ClientProfessionalController;
 use App\Domain\Appointments\Controllers\EquipmentController;
 use App\Domain\Appointments\Controllers\ProfessionalController;
 use App\Domain\Appointments\Controllers\RoomController;
@@ -10,6 +11,7 @@ use App\Domain\Clients\Controllers\ClientAuthController;
 use App\Domain\Inventory\Controllers\ProductController;
 use App\Domain\Inventory\Controllers\StockMovementController;
 use App\Domain\Sales\Controllers\ClientPackageController;
+use App\Domain\Sales\Controllers\ClientSelfPackageController;
 use App\Domain\Sales\Controllers\ClientSaleController;
 use App\Domain\Sales\Controllers\SaleController;
 use App\Domain\Services\Controllers\ServiceController;
@@ -33,6 +35,10 @@ Route::prefix('client')->group(function (): void {
         Route::get('auth/me', [ClientAuthController::class, 'me']);
         Route::put('profile', [ClientAuthController::class, 'update']);
         Route::delete('profile', [ClientAuthController::class, 'destroy']);
+        Route::get('packages', [ClientSelfPackageController::class, 'index']);
+        Route::get('packages/available', [ClientSelfPackageController::class, 'available']);
+        Route::post('packages', [ClientSelfPackageController::class, 'subscribe']);
+        Route::get('professionals', [ClientProfessionalController::class, 'index']);
         Route::get('appointments', [ClientAppointmentController::class, 'index']);
         Route::post('appointments', [ClientAppointmentController::class, 'store']);
         Route::post('appointments/{appointment}/reschedule', [ClientAppointmentController::class, 'reschedule']);
