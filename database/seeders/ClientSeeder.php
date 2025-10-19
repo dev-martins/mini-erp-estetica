@@ -9,6 +9,7 @@ use App\Domain\Compliance\Models\Anamnese;
 use Faker\Factory as Faker;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Hash;
 
 class ClientSeeder extends Seeder
 {
@@ -18,23 +19,32 @@ class ClientSeeder extends Seeder
 
         $clients = collect(range(1, 10))->map(function () use ($faker) {
             $createdAt = $faker->dateTimeBetween('-6 months', 'now -10 days');
+            $email = $faker->unique()->safeEmail();
+            $phone = $faker->unique()->numerify("5599########");
+            $verifiedAt = now()->subDays(random_int(5, 30));
 
             return Client::updateOrCreate(
-                ['email' => $faker->unique()->safeEmail()],
+                ['email' => $email],
                 [
                     'full_name' => $faker->name(),
-                    'phone' => $faker->cellphoneNumber(),
+                    'phone' => $phone,
                     'birthdate' => $faker->dateTimeBetween('-40 years', '-18 years'),
                     'instagram' => '@' . $faker->userName(),
                     'consent_marketing' => $faker->boolean(70),
-                    'source' => $faker->randomElement(['Instagram', 'Indicação', 'Google Meu Negócio']),
+                    'source' => $faker->randomElement(['Instagram', 'IndicaÃ§Ã£o', 'Google Meu NegÃ³cio']),
                     'last_appointment_at' => $createdAt,
                     'tags' => Arr::random([
                         ['VIP', 'Fidelizada'],
                         ['Potencial', 'Massagem'],
                         ['Laser', 'Recorrente'],
-                        ['Recém-chegada'],
+                        ['RecÃ©m-chegada'],
                     ]),
+                    'password' => Hash::make('senha123'),
+                    'email_verified_at' => $verifiedAt,
+                    'phone_verified_at' => $verifiedAt,
+                    'verification_code' => null,
+                    'verification_code_expires_at' => null,
+                    'verification_channels' => [],
                     'created_at' => $createdAt,
                     'updated_at' => now(),
                 ]
@@ -43,7 +53,7 @@ class ClientSeeder extends Seeder
 
         $clients->each(function (Client $client) use ($faker) {
             Lead::updateOrCreate(
-                ['phone' => $client->phone ?? $faker->cellphoneNumber()],
+                ['phone' => $client->phone ?? $faker->unique()->numerify("5599########")],
                 [
                     'name' => $client->full_name,
                     'email' => $client->email,
@@ -63,7 +73,7 @@ class ClientSeeder extends Seeder
                     'form_json' => [
                         'objetivo' => $faker->randomElement(['Reduzir medidas', 'Eliminar pelos', 'Relaxar']),
                         'alergias' => $faker->randomElement(['Nenhuma', 'Lactose', 'Frutos do mar']),
-                        'observacoes' => 'Cliente orientada sobre cuidados pré e pós atendimento.',
+                        'observacoes' => 'Cliente orientada sobre cuidados prÃ© e pÃ³s atendimento.',
                     ],
                     'signed_at' => now()->subDays(random_int(10, 60)),
                     'signer_name' => $client->full_name,
@@ -72,14 +82,14 @@ class ClientSeeder extends Seeder
             );
         });
 
-        if ($clients->count() >= 3) {
+        if ($clients->count() >= 4) {
             Referral::updateOrCreate(
                 [
                     'client_id' => $clients[2]->id,
                     'referred_by_client_id' => $clients[0]->id,
                 ],
                 [
-                    'channel' => 'Indicação amiga',
+                    'channel' => 'IndicaÃ§Ã£o amiga',
                 ]
             );
 
@@ -89,11 +99,11 @@ class ClientSeeder extends Seeder
                     'referred_by_client_id' => $clients[1]->id,
                 ],
                 [
-                    'channel' => 'Parceiro estúdio pilates',
+                    'channel' => 'Parceiro estÃºdio pilates',
                 ]
             );
         }
 
-        $this->command?->info('Clientes, leads e prontuários gerados.');
+        $this->command?->info('Clientes, leads e prontuÃ¡rios gerados.');
     }
 }

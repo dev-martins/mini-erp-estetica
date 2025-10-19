@@ -425,3 +425,4 @@ FILES_DISK=public
 * Garanta **mobile‑first** desde o primeiro componente.
 * Mantenha **kits de serviço** atualizados para refletir custo real por sessão.
 * Meça desde o dia 1: **no‑show, ticket, reativação, ocupação**.
+* Utilize utf-8 e não utilize caracter especial. Utilize acentuação adequadamente.

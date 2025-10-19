@@ -9,13 +9,14 @@ class ClientData
 {
     public function __construct(
         public readonly string $fullName,
-        public readonly string $phone,
+        public readonly ?string $phone,
         public readonly ?string $email,
         public readonly ?string $birthdate,
         public readonly ?string $instagram,
         public readonly bool $consentMarketing,
         public readonly ?string $source,
         public readonly ?array $tags,
+        public readonly ?string $password = null,
     ) {
     }
 
@@ -30,6 +31,7 @@ class ClientData
             consentMarketing: (bool) $request->boolean('consent_marketing'),
             source: $request->input('source'),
             tags: $request->input('tags'),
+            password: $request->input('password'),
         );
     }
 
@@ -44,12 +46,13 @@ class ClientData
             consentMarketing: (bool) $client->consent_marketing,
             source: $client->source,
             tags: $client->tags,
+            password: null,
         );
     }
 
     public function toArray(): array
     {
-        return [
+        return array_filter([
             'full_name' => $this->fullName,
             'phone' => $this->phone,
             'email' => $this->email,
@@ -58,6 +61,7 @@ class ClientData
             'consent_marketing' => $this->consentMarketing,
             'source' => $this->source,
             'tags' => $this->tags,
-        ];
+            'password' => $this->password,
+        ], static fn ($value) => $value !== null);
     }
 }

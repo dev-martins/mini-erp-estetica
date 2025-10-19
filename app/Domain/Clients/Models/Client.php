@@ -9,23 +9,37 @@ use App\Domain\Sales\Models\ClientPackage;
 use App\Domain\Sales\Models\Sale;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Passport\HasApiTokens;
 
-class Client extends Model
+class Client extends Authenticatable
 {
+    use HasApiTokens;
     use HasFactory;
+    use Notifiable;
+    use SoftDeletes;
 
     protected $fillable = [
         'full_name',
         'phone',
         'email',
+        'password',
         'birthdate',
         'instagram',
         'consent_marketing',
         'source',
         'last_appointment_at',
         'tags',
+        'verification_channels',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'verification_code',
     ];
 
     protected $casts = [
@@ -33,6 +47,11 @@ class Client extends Model
         'consent_marketing' => 'boolean',
         'last_appointment_at' => 'datetime',
         'tags' => 'array',
+        'email_verified_at' => 'datetime',
+        'phone_verified_at' => 'datetime',
+        'verification_code_expires_at' => 'datetime',
+        'verification_channels' => 'array',
+        'password' => 'hashed',
     ];
 
     protected function firstName(): Attribute
