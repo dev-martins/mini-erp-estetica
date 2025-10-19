@@ -340,6 +340,7 @@ const calendarOptions = computed(() => ({
   initialView: window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek',
   locale: 'pt-br',
   height: 'auto',
+  slotMinTime: '06:00:00',
   headerToolbar: {
     left: 'title',
     right: 'timeGridDay,timeGridWeek,dayGridMonth prev,next',
@@ -647,4 +648,3 @@ onBeforeUnmount(() => {
   window.removeEventListener('appointments:refresh', fetchData);
 });
 </script>
-
