@@ -1,13 +1,16 @@
 <?php
 
 use App\Domain\Appointments\Controllers\AppointmentController;
+use App\Domain\Appointments\Controllers\ClientAppointmentController;
 use App\Domain\Appointments\Controllers\EquipmentController;
 use App\Domain\Appointments\Controllers\ProfessionalController;
 use App\Domain\Appointments\Controllers\RoomController;
 use App\Domain\Clients\Controllers\ClientController;
+use App\Domain\Clients\Controllers\ClientAuthController;
 use App\Domain\Inventory\Controllers\ProductController;
 use App\Domain\Inventory\Controllers\StockMovementController;
 use App\Domain\Sales\Controllers\ClientPackageController;
+use App\Domain\Sales\Controllers\ClientSaleController;
 use App\Domain\Sales\Controllers\SaleController;
 use App\Domain\Services\Controllers\ServiceController;
 use App\Http\Controllers\Api\AuthController;
@@ -19,6 +22,25 @@ Route::get('/health', fn () => response()->json([
 ]));
 
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+Route::prefix('client')->group(function (): void {
+    Route::post('auth/register', [ClientAuthController::class, 'register']);
+    Route::post('auth/login', [ClientAuthController::class, 'login']);
+    Route::post('auth/verify', [ClientAuthController::class, 'verify']);
+
+    Route::middleware('auth:client')->group(function (): void {
+        Route::post('auth/logout', [ClientAuthController::class, 'logout']);
+        Route::get('auth/me', [ClientAuthController::class, 'me']);
+        Route::put('profile', [ClientAuthController::class, 'update']);
+        Route::delete('profile', [ClientAuthController::class, 'destroy']);
+        Route::get('appointments', [ClientAppointmentController::class, 'index']);
+        Route::post('appointments', [ClientAppointmentController::class, 'store']);
+        Route::post('appointments/{appointment}/reschedule', [ClientAppointmentController::class, 'reschedule']);
+        Route::post('appointments/{appointment}/cancel', [ClientAppointmentController::class, 'cancel']);
+        Route::get('sales', [ClientSaleController::class, 'index']);
+        Route::get('sales/{sale}', [ClientSaleController::class, 'show']);
+    });
+});
 
 Route::middleware('auth:api')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

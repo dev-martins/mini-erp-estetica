@@ -28,6 +28,10 @@ class AppointmentRepository
             })
             ->when($filters['client_id'] ?? null, fn (Builder $query, $id) => $query->where('client_id', $id))
             ->when($filters['professional_id'] ?? null, fn (Builder $query, $id) => $query->where('professional_id', $id))
+            ->when($filters['status'] ?? null, function (Builder $query, $status): void {
+                $statuses = is_array($status) ? $status : [$status];
+                $query->whereIn('status', array_filter($statuses));
+            })
             ->orderBy('scheduled_at')
             ->paginate($perPage);
     }

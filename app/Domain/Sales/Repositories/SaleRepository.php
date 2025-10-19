@@ -15,6 +15,10 @@ class SaleRepository
             ->with(['client', 'items', 'payments'])
             ->when($filters['from'] ?? null, fn ($query, $from) => $query->whereDate('sold_at', '>=', $from))
             ->when($filters['to'] ?? null, fn ($query, $to) => $query->whereDate('sold_at', '<=', $to))
+            ->when(
+                $filters['client_id'] ?? null,
+                fn ($query, $clientId) => $query->where('client_id', $clientId)
+            )
             ->orderByDesc('sold_at')
             ->paginate($perPage);
     }

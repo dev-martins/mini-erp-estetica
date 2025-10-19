@@ -11,3 +11,6 @@ Route::get('/web/health', function () {
     ]);
 });
 
+Route::view('/cliente/{view?}', 'client.app')
+    ->where('view', '.*')
+    ->name('client.app');
