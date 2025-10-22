@@ -30,6 +30,11 @@ class ClientService
         return $client->refresh();
     }
 
+    public function findWithTrashed(int $clientId): Client
+    {
+        return $this->repository->findWithTrashed($clientId);
+    }
+
     public function update(Client $client, ClientData $data): Client
     {
         $originalEmail = $client->email;
@@ -50,6 +55,17 @@ class ClientService
     public function delete(Client $client): void
     {
         $this->repository->delete($client);
+    }
+
+    public function changeStatus(Client $client, string $status): Client
+    {
+        if ($status === 'inactive') {
+            $this->repository->deactivate($client);
+        } else {
+            $this->repository->activate($client);
+        }
+
+        return $this->repository->findWithTrashed($client->id);
     }
 
     public function verifyContact(Client $client, string $channel, string $code): Client

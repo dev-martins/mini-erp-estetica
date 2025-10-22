@@ -47,6 +47,7 @@ Route::middleware('auth:api')->group(function (): void {
     Route::get('/auth/me', [AuthController::class, 'me']);
 
     Route::apiResource('clients', ClientController::class);
+    Route::patch('clients/{client}/status', [ClientController::class, 'updateStatus'])->name('clients.status');
     Route::apiResource('services', ServiceController::class);
     Route::get('professionals', [ProfessionalController::class, 'index']);
     Route::get('rooms', [RoomController::class, 'index']);

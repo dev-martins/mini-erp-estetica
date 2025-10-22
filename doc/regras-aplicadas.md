@@ -15,9 +15,22 @@ AGENDAMENTO
 
 VENDAS
 
- - [ ] Adicionar um filtro na tela de vendas onde ao abrir a tela seja por padrão as vendas recentes. Porém possa filtrar por vendas do ano, mês, semana e dia. 
- - [ ] Os indicadores de hoje, tiket médio, comissão e em mix de receitas: serviços, produtos e pacotes devem variar de acordo com o filtro da página. Na tabela que exibe vednas recentes qunado tiver exibindo o padrão máximo de 8 registros, quando estiver filtrando deve ter paginação com máximo de 8 por pagina
- - [ ] no botão detalhes quando clicar deve abrir um modal e exibir os detalhes mais importantes da venda
+ - [x] Adicionar um filtro na tela de vendas onde ao abrir a tela seja por padrão as vendas recentes. Porém possa filtrar por vendas do ano, mês, semana e dia. 
+ - [x] Os indicadores de hoje, tiket médio, comissão e em mix de receitas: serviços, produtos e pacotes devem variar de acordo com o filtro da página. Na tabela que exibe vednas recentes qunado tiver exibindo o padrão máximo de 8 registros, quando estiver filtrando deve ter paginação com máximo de 8 por pagina
+ - [x] no botão detalhes quando clicar deve abrir um modal e exibir os detalhes mais importantes da venda
+
+TELA DE CLIENTES VISÃO FUNCIONÁRIOS
+
+ - [x] quando clica no botão detalhes deve exibir os principais detalhes do cliente em um modal
+ - [x] botão novo cliente deve permitir adicionar novo cliente, quando clicado deve abrir um modal de cadastro
+ - [x] o card clientes ativos por padrão exibe clientes ativos. Preciso de um filtro para status dos clientes e uma forma de desativar e reativar clientes nessa tela, também preciso de uma paginação, com no máximo 5 clientes por página
+ - [ ] Integrar o botão enviar whatsapp com o whatsapp
+ - [ ] no card resumo rápido, o contador de clientes ativos e inativos está funcionando, porém inativei um cliente e depois o reativei, o contador de reativações 30d contina zerado. 
+
+TELA DE ESTOQUE VISÃO FUNCIONÁRIOS
+
+ - [ ] Botão registrar entrada deve abrir um modal para registro
+ - [ ] baixa manual deve abrir um modal para registro de baixa
 
 VISÃO DO CLIENTE
 
@@ -61,3 +74,13 @@ GASTOS
   - [ ] Reagendar ou desmarcar com antecendência mínima de 24h;
   - [ ] O não comparaceimento sem aviso prévio, contará como atendimento feito, sem direito a reagendamento daquela sessão;
   - [ ] O pacote é intrasferível (não podendo colocar outra pessoa no lugar).
+
+
+Observaçoes
+
+tela de vendas
+O botão “Checkout rápido” está ali como atalho para abrir o fluxo de finalização de venda/POS imediatamente — a ideia é que, a partir de qualquer lugar da página de vendas, o atendente possa iniciar uma nova cobrança sem ter que navegar por menus. Ele ainda não dispara nenhuma ação (porque o fluxo completo de checkout não foi implementado), mas fica reservado para conectar com o modal ou a rota de criação de vendas assim que o POS estiver pronto.
+
+Tela de clientes visão de funcionários
+
+As “Listas inteligentes” que aparecem hoje na tela de clientes são apenas cartões estáticos simulando possíveis segmentações úteis (ex.: clientes sem retorno há 30 dias, pacotes prestes a vencer). Eles ainda não são gerados dinamicamente nem estão ligados a filtros automáticos—servem só como placeholder para futuras automações de CRM. Para transformá-las em listas reais, precisaríamos criar critérios (queries ou endpoints) que retornem aqueles subconjuntos e ligar cada botão a um filtro ou rota apropriada.
