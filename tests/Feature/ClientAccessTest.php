@@ -258,7 +258,7 @@ class ClientAccessTest extends TestCase
             'user_id' => $user->id,
             'display_name' => 'Equipe Teste',
             'specialty' => 'Estética',
-            'commission_type' => 'percent',
+            'commission_type' => 'percentage',
             'commission_value' => 30,
             'work_hours' => [
                 'monday' => ['08:00-12:00', '13:00-18:00'],

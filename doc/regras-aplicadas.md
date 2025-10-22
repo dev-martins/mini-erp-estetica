@@ -11,14 +11,23 @@ AGENDAMENTO
  - [ ] o Cancelamento ou remarcação daquela sessão só pode ser feito com antecedência mínima de 24h (quando for o cliente tentando cancelar ou remarcar).
  - [ ] Intervalo de no mínimo 48h entre uma sessão e outra.
  - [x] Por padrão deve aparecer em agendamento o card de próximos atendimentos (isso já funciona), porém preciso ter um filtro na página de agendamentos por mês, semana e dia. Quando filtrar devem aparecer no card de proximos atendimentos no máximo cinco agendamentos do mês, semana ou dia de acordo com o filtro. E o título do card deve mudar para agendamentos de outubro, agendamentos do dia x/mes a y/mes (no filtro de semana) e agendamentos do dia x/mes (agendamentos do dia). Para que o operador possa dizer se a pessoa compareceu ou não.  Nos filtros deve ter a opção de limpar para voltar a aparecer próximos agendamentos.
- - [ ] Remover do calendário na visão de dia e semana os horários 00 a 06
+ - [x] Remover do calendário na visão de dia e semana os horários 00 a 06
+
+VENDAS
+
+ - [ ] Adicionar um filtro na tela de vendas onde ao abrir a tela seja por padrão as vendas recentes. Porém possa filtrar por vendas do ano, mês, semana e dia. 
+ - [ ] Os indicadores de hoje, tiket médio, comissão e em mix de receitas: serviços, produtos e pacotes devem variar de acordo com o filtro da página. Na tabela que exibe vednas recentes qunado tiver exibindo o padrão máximo de 8 registros, quando estiver filtrando deve ter paginação com máximo de 8 por pagina
+ - [ ] no botão detalhes quando clicar deve abrir um modal e exibir os detalhes mais importantes da venda
 
 VISÃO DO CLIENTE
 
- - [ ] Só pode ver seus próprios agendamento
- - [ ] Suas próprias compras
- - [ ] caso queira agendar deve ter um pacote assinado e deve ter pelo menos 1 sessão disponível no pacote que ele assinou
- - [ ] Só pode remarcar com 24h de antecedência
+ - [x] Já existe seeder de clientes, porém não encontrei senha na seeder. Clientes precisam ter acesso ao sistema.
+ - [x] Precisa ter uma api de cadastro de cliente, atualização de dados cadastrais e delete lógico. Já existe endpoint de listagem de todos os clientes.
+ - [x] Clientes terão um pré cadastro que pode ser feito por um profissional: Owner, seretaria ou recepcionista, ou por meios externos como landpage etc. Será necessário informar nome, email ou celular (será enviado um email ou sms para validar email ou celular com código de primeiro acesso que ao informar será marcado na tabela que o meio de comunicação é válido) e uma senha.
+ - [x] Só pode ver seus próprios agendamento.
+ - [x] Só pode ver Suas próprias compras.
+ - [ ] caso queira agendar deve ter um pacote assinado e deve ter pelo menos 1 sessão disponível no pacote que ele assinou respeitando a demais regras de agendamento já aplicadas;
+ - [ ] Só pode remarcar ou cancelar com 24h de antecedência. 
 
 VISÃO SECRETÁRIA/RECEPCIONISTA
 
