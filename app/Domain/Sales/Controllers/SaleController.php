@@ -22,12 +22,13 @@ class SaleController extends Controller
     {
         $this->authorize('viewAny', Sale::class);
 
-        $sales = $this->service->list(
-            filters: $request->only(['from', 'to']),
+        $result = $this->service->listWithSummary(
+            filters: $request->only(['from', 'to', 'range', 'client_id']),
             perPage: $request->integer('per_page', 15)
         );
 
-        return SaleResource::collection($sales);
+        return SaleResource::collection($result['paginator'])
+            ->additional(['summary' => $result['summary']]);
     }
 
     public function store(SaleRequest $request)
