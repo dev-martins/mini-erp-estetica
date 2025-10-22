@@ -23,6 +23,67 @@ class SaleRepository
             ->paginate($perPage);
     }
 
+    public function summary(array $filters = []): array
+    {
+        $baseQuery = Sale::query()
+            ->when($filters['from'] ?? null, fn ($query, $from) => $query->whereDate('sold_at', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($query, $to) => $query->whereDate('sold_at', '<=', $to))
+            ->when(
+                $filters['client_id'] ?? null,
+                fn ($query, $clientId) => $query->where('client_id', $clientId)
+            );
+
+        $total = (clone $baseQuery)->sum('total_amount');
+        $count = (clone $baseQuery)->count();
+
+        $mixTotals = Sale::query()
+            ->selectRaw('sale_items.item_type as type, SUM(sale_items.total) as value')
+            ->join('sale_items', 'sales.id', '=', 'sale_items.sale_id')
+            ->when($filters['from'] ?? null, fn ($query, $from) => $query->whereDate('sales.sold_at', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($query, $to) => $query->whereDate('sales.sold_at', '<=', $to))
+            ->when(
+                $filters['client_id'] ?? null,
+                fn ($query, $clientId) => $query->where('sales.client_id', $clientId)
+            )
+            ->groupBy('sale_items.item_type')
+            ->get()
+            ->mapWithKeys(fn ($row) => [$row->type => (float) $row->value])
+            ->all();
+
+        $mixTotals = [
+            'service' => $mixTotals['service'] ?? 0.0,
+            'product' => $mixTotals['product'] ?? 0.0,
+            'package' => $mixTotals['package'] ?? 0.0,
+        ];
+
+        $grandTotal = array_sum($mixTotals);
+
+        $mixPercentages = $grandTotal > 0
+            ? array_map(fn ($value) => (float) round(($value / $grandTotal) * 100, 1), $mixTotals)
+            : [
+                'service' => 0.0,
+                'product' => 0.0,
+                'package' => 0.0,
+            ];
+
+        return [
+            'total' => (float) round($total, 2),
+            'count' => (int) $count,
+            'average_ticket' => $count > 0 ? (float) round($total / $count, 2) : 0.0,
+            'commission_estimated' => (float) round($total * 0.25, 2),
+            'mix' => [
+                'services' => $mixPercentages['service'],
+                'products' => $mixPercentages['product'],
+                'packages' => $mixPercentages['package'],
+            ],
+            'mix_totals' => [
+                'services' => $mixTotals['service'],
+                'products' => $mixTotals['product'],
+                'packages' => $mixTotals['package'],
+            ],
+        ];
+    }
+
     public function create(SaleData $data): Sale
     {
         return DB::transaction(function () use ($data) {
