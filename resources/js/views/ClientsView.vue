@@ -1,19 +1,38 @@
 <template>
   <section class="container-fluid px-0 px-md-2">
     <div class="card card-mobile p-3 mb-3">
-      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-        <div>
-          <h2 class="h5 fw-semibold mb-1">Clientes & relacionamento</h2>
-          <small class="text-body-secondary">Pesquise, classifique e ative clientes com um toque.</small>
+      <div class="d-flex flex-column gap-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+          <div>
+            <h2 class="h5 fw-semibold mb-1">Clientes & relacionamento</h2>
+            <small class="text-body-secondary">Pesquise, classifique e ative clientes com um toque.</small>
+          </div>
         </div>
-        <div class="input-group input-group-lg">
-          <span class="input-group-text bg-body-secondary"><i class="fa-solid fa-magnifying-glass"></i></span>
-          <input
-            v-model="filters.search"
-            type="search"
-            class="form-control"
-            placeholder="Busque por nome, telefone ou e-mail"
-          />
+        <div class="d-flex flex-column flex-sm-row gap-2">
+          <div class="input-group input-group-lg flex-grow-1">
+            <span class="input-group-text bg-body-secondary">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input
+              v-model="filters.search"
+              type="search"
+              class="form-control"
+              placeholder="Busque por nome, telefone ou e-mail"
+              aria-label="Buscar clientes"
+            />
+          </div>
+          <div class="status-filter flex-shrink-0">
+            <select
+              id="client-status-filter"
+              v-model="filters.status"
+              class="form-select form-select-lg"
+              aria-label="Filtrar clientes por status"
+            >
+              <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -22,8 +41,8 @@
       <div class="col-12 col-lg-8">
         <div class="card card-mobile p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="h6 fw-semibold mb-0">Clientes ativos</h3>
-            <button class="btn btn-primary btn-sm" type="button">
+            <h3 class="h6 fw-semibold mb-0">{{ listTitle }}</h3>
+            <button class="btn btn-primary btn-sm" type="button" @click="openCreateModal">
               <i class="fa-regular fa-user-plus me-2"></i>Novo cliente
             </button>
           </div>
@@ -38,11 +57,17 @@
               class="border rounded-4 px-3 py-3 d-flex flex-column gap-2"
             >
               <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
-                <div>
+                <div class="d-flex flex-column gap-1">
                   <h4 class="h6 fw-semibold mb-0">{{ client.full_name }}</h4>
                   <small class="text-body-secondary">
                     {{ client.phone }} - {{ client.email ?? 'sem e-mail' }}
                   </small>
+                  <span
+                    v-if="client.status === 'inactive'"
+                    class="badge text-bg-warning align-self-start"
+                  >
+                    Inativo
+                  </span>
                 </div>
                 <span class="badge text-bg-light text-body-secondary">{{ client.source ?? 'Organico' }}</span>
               </div>
@@ -60,8 +85,36 @@
                 <button class="btn btn-outline-primary btn-sm flex-grow-1" type="button">
                   <i class="fa-brands fa-whatsapp me-1"></i>Enviar WhatsApp
                 </button>
-                <button class="btn btn-outline-secondary btn-sm" type="button">
+                <button class="btn btn-outline-secondary btn-sm" type="button" @click="openDetails(client)">
                   Detalhes
+                </button>
+                <button
+                  v-if="client.status === 'active'"
+                  class="btn btn-outline-danger btn-sm"
+                  type="button"
+                  :disabled="isStatusProcessing(client.id)"
+                  @click="updateClientStatus(client, 'inactive')"
+                >
+                  <span
+                    v-if="isStatusProcessing(client.id)"
+                    class="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  ></span>
+                  Desativar
+                </button>
+                <button
+                  v-else
+                  class="btn btn-outline-success btn-sm"
+                  type="button"
+                  :disabled="isStatusProcessing(client.id)"
+                  @click="updateClientStatus(client, 'active')"
+                >
+                  <span
+                    v-if="isStatusProcessing(client.id)"
+                    class="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  ></span>
+                  Reativar
                 </button>
                 <button
                   v-if="canManageAppointments"
@@ -77,6 +130,59 @@
               Nenhum cliente encontrado.
             </p>
           </div>
+
+          <div
+            v-if="showPagination"
+            class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 mt-3"
+          >
+            <small class="text-body-secondary">
+              Pagina {{ pagination.current_page }} de {{ pagination.last_page }}
+            </small>
+            <nav aria-label="Paginacao de clientes">
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" :class="{ disabled: pagination.current_page <= 1 || loading }">
+                  <button
+                    class="page-link"
+                    type="button"
+                    aria-label="Pagina anterior"
+                    @click="changePage(pagination.current_page - 1)"
+                    :disabled="pagination.current_page <= 1 || loading"
+                  >
+                    ‹
+                  </button>
+                </li>
+                <li
+                  v-for="pageNumber in pageNumbers"
+                  :key="pageNumber"
+                  class="page-item"
+                  :class="{ active: pageNumber === pagination.current_page }"
+                >
+                  <button
+                    class="page-link"
+                    type="button"
+                    @click="changePage(pageNumber)"
+                    :disabled="pageNumber === pagination.current_page || loading"
+                  >
+                    {{ pageNumber }}
+                  </button>
+                </li>
+                <li
+                  class="page-item"
+                  :class="{ disabled: pagination.current_page >= pagination.last_page || loading }"
+                >
+                  <button
+                    class="page-link"
+                    type="button"
+                    aria-label="Proxima pagina"
+                    @click="changePage(pagination.current_page + 1)"
+                    :disabled="pagination.current_page >= pagination.last_page || loading"
+                  >
+                    ›
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
 
@@ -85,7 +191,7 @@
           <h3 class="h6 fw-semibold mb-3">Resumo rapido</h3>
           <ul class="list-unstyled mb-0 d-flex flex-column gap-2 small">
             <li class="d-flex justify-content-between">
-              <span>Clientes ativos</span><strong>{{ stats.total }}</strong>
+              <span>{{ listTitle }}</span><strong>{{ stats.total }}</strong>
             </li>
             <li class="d-flex justify-content-between">
               <span>Reativacoes 30d</span><strong>{{ stats.reengagement }}</strong>
@@ -112,6 +218,223 @@
       </div>
     </div>
   </section>
+
+  <teleport to="body">
+    <div
+      v-if="showDetailsModal"
+      class="modal fade show d-block"
+      tabindex="-1"
+      style="background-color: rgba(15, 23, 42, 0.45)"
+      @click.self="closeDetails"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content rounded-4">
+          <div class="modal-header">
+            <h5 class="modal-title">Detalhes do cliente</h5>
+            <button type="button" class="btn-close" aria-label="Fechar detalhes" @click="closeDetails"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="detailsLoading" class="text-center py-4">
+              <div class="spinner-border text-primary" role="status"></div>
+            </div>
+            <div v-else>
+              <p v-if="detailsError" class="alert alert-warning mb-0">{{ detailsError }}</p>
+              <div v-else-if="selectedClient" class="d-flex flex-column gap-3">
+                <div class="d-flex flex-column gap-1">
+                  <h6 class="fw-semibold mb-0">{{ selectedClient.full_name }}</h6>
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge text-bg-light text-body-secondary">
+                      {{ formatStatusLabel(selectedClient.status) }}
+                    </span>
+                    <span v-if="selectedClient.source" class="badge text-bg-secondary-subtle text-body-secondary">
+                      {{ selectedClient.source }}
+                    </span>
+                  </div>
+                </div>
+                <div class="row row-cols-1 row-cols-sm-2 gy-2 small">
+                  <div class="col">
+                    <span class="text-body-secondary d-block">Telefone</span>
+                    <span class="fw-semibold">{{ selectedClient.phone ?? 'Nao informado' }}</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-body-secondary d-block">E-mail</span>
+                    <span class="fw-semibold">{{ selectedClient.email ?? 'Nao informado' }}</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-body-secondary d-block">Instagram</span>
+                    <span class="fw-semibold">{{ selectedClient.instagram ?? 'Nao informado' }}</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-body-secondary d-block">Ultima sessao</span>
+                    <span class="fw-semibold">{{ formatDetailedDate(selectedClient.last_appointment_at) }}</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-body-secondary d-block">Criado em</span>
+                    <span class="fw-semibold">{{ formatDetailedDate(selectedClient.created_at) }}</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-body-secondary d-block">Marketing</span>
+                    <span class="fw-semibold">{{ selectedClient.consent_marketing ? 'Opt-in' : 'Opt-out' }}</span>
+                  </div>
+                  <div class="col-12">
+                    <span class="text-body-secondary d-block">Tags</span>
+                    <span class="fw-semibold">
+                      {{
+                        selectedClient.tags?.length
+                          ? selectedClient.tags.join(', ')
+                          : 'Sem tags'
+                      }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeDetails">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </teleport>
+
+  <teleport to="body">
+    <div
+      v-if="showCreateModal"
+      class="modal fade show d-block"
+      tabindex="-1"
+      style="background-color: rgba(15, 23, 42, 0.45)"
+      @click.self="closeCreateModal"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg modal-fullscreen-sm-down">
+        <div class="modal-content rounded-4">
+          <form @submit.prevent="submitNewClient" novalidate>
+            <div class="modal-header">
+              <h5 class="modal-title">Cadastrar novo cliente</h5>
+              <button type="button" class="btn-close" aria-label="Fechar cadastro" @click="closeCreateModal"></button>
+            </div>
+            <div class="modal-body">
+              <div v-if="newClientErrors.general" class="alert alert-warning">{{ newClientErrors.general }}</div>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label small text-body-secondary" for="client-full-name">Nome completo</label>
+                  <input
+                    id="client-full-name"
+                    v-model="newClientForm.full_name"
+                    type="text"
+                    class="form-control"
+                    :class="{ 'is-invalid': newClientErrors.full_name }"
+                    placeholder="Ex.: Ana Paula Silva"
+                    required
+                  />
+                  <div v-if="newClientErrors.full_name" class="invalid-feedback">
+                    {{ newClientErrors.full_name }}
+                  </div>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label small text-body-secondary" for="client-phone">Telefone</label>
+                  <input
+                    id="client-phone"
+                    v-model="newClientForm.phone"
+                    type="tel"
+                    class="form-control"
+                    :class="{ 'is-invalid': newClientErrors.phone }"
+                    placeholder="(11) 99999-9999"
+                  />
+                  <div v-if="newClientErrors.phone" class="invalid-feedback">
+                    {{ newClientErrors.phone }}
+                  </div>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label small text-body-secondary" for="client-email">E-mail</label>
+                  <input
+                    id="client-email"
+                    v-model="newClientForm.email"
+                    type="email"
+                    class="form-control"
+                    :class="{ 'is-invalid': newClientErrors.email }"
+                    placeholder="contato@cliente.com"
+                  />
+                  <div v-if="newClientErrors.email" class="invalid-feedback">
+                    {{ newClientErrors.email }}
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-body-secondary" for="client-password">Senha</label>
+                  <input
+                    id="client-password"
+                    v-model="newClientForm.password"
+                    type="password"
+                    class="form-control"
+                    :class="{ 'is-invalid': newClientErrors.password }"
+                    placeholder="Minimo 8 caracteres"
+                    required
+                  />
+                  <div v-if="newClientErrors.password" class="invalid-feedback">
+                    {{ newClientErrors.password }}
+                  </div>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label small text-body-secondary" for="client-birthdate">Data de nascimento</label>
+                  <input
+                    id="client-birthdate"
+                    v-model="newClientForm.birthdate"
+                    type="date"
+                    class="form-control"
+                  />
+                </div>
+                <div class="col-12 col-sm-6">
+                  <label class="form-label small text-body-secondary" for="client-instagram">Instagram</label>
+                  <input
+                    id="client-instagram"
+                    v-model="newClientForm.instagram"
+                    type="text"
+                    class="form-control"
+                    placeholder="@perfil"
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-body-secondary" for="client-source">Origem</label>
+                  <input
+                    id="client-source"
+                    v-model="newClientForm.source"
+                    type="text"
+                    class="form-control"
+                    placeholder="Ex.: Instagram, Indicacao"
+                  />
+                </div>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input
+                      id="client-consent"
+                      v-model="newClientForm.consent_marketing"
+                      class="form-check-input"
+                      type="checkbox"
+                    />
+                    <label class="form-check-label small text-body-secondary" for="client-consent">
+                      Aceita receber comunicados de marketing
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+              <button type="button" class="btn btn-outline-secondary" @click="closeCreateModal">Cancelar</button>
+              <button class="btn btn-primary" type="submit" :disabled="savingClient">
+                <span
+                  v-if="savingClient"
+                  class="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                Salvar cliente
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </teleport>
 
   <teleport to="body">
     <div
@@ -248,6 +571,48 @@ const clients = ref([]);
 const loading = ref(false);
 const filters = reactive({
   search: '',
+  status: 'active',
+});
+
+const statusOptions = [
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
+  { value: 'all', label: 'Todos' },
+];
+
+const pagination = reactive({
+  current_page: 1,
+  last_page: 1,
+  total: 0,
+  per_page: 5,
+});
+
+const listTitle = computed(() => {
+  switch (filters.status) {
+    case 'inactive':
+      return 'Clientes inativos';
+    case 'all':
+      return 'Todos os clientes';
+    default:
+      return 'Clientes ativos';
+  }
+});
+
+const showPagination = computed(() => pagination.last_page > 1);
+
+const pageNumbers = computed(() => {
+  const total = pagination.last_page ?? 1;
+  const current = pagination.current_page ?? 1;
+
+  if (total <= 1) {
+    return [1];
+  }
+
+  const numbers = new Set([1, total, current - 1, current, current + 1]);
+
+  return Array.from(numbers)
+    .filter((value) => value >= 1 && value <= total)
+    .sort((a, b) => a - b);
 });
 
 const stats = reactive({
@@ -255,6 +620,33 @@ const stats = reactive({
   reengagement: 0,
   optIn: 0,
 });
+
+const showDetailsModal = ref(false);
+const selectedClient = ref(null);
+const detailsLoading = ref(false);
+const detailsError = ref('');
+
+const showCreateModal = ref(false);
+const savingClient = ref(false);
+const newClientForm = reactive({
+  full_name: '',
+  phone: '',
+  email: '',
+  password: '',
+  birthdate: '',
+  instagram: '',
+  source: '',
+  consent_marketing: false,
+});
+const newClientErrors = reactive({
+  full_name: '',
+  phone: '',
+  email: '',
+  password: '',
+  general: '',
+});
+
+const statusProcessing = ref([]);
 
 const managingClient = ref(null);
 const showManageModal = ref(false);
@@ -289,12 +681,40 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function formatDetailedDate(value) {
+  if (!value) {
+    return 'Nao informado';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Data invalida';
+  }
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function formatStatusLabel(status) {
+  return status === 'inactive' ? 'Inativo' : 'Ativo';
+}
+
 let debounceTimer;
 watch(
   () => filters.search,
   () => {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => fetchClients(), 350);
+    debounceTimer = setTimeout(() => fetchClients(1), 350);
+  },
+);
+
+watch(
+  () => filters.status,
+  () => {
+    fetchClients(1);
   },
 );
 
@@ -305,17 +725,183 @@ async function fetchClients(page = 1) {
       params: {
         page,
         search: filters.search || undefined,
-        per_page: 20,
+        status: filters.status,
+        per_page: pagination.per_page,
       },
     });
+
     clients.value = data.data ?? [];
-    stats.total = data.meta?.total ?? clients.value.length;
+
+    const meta = data.meta ?? {};
+
+    pagination.current_page = meta.current_page ?? page;
+    pagination.last_page = meta.last_page ?? 1;
+    pagination.total = meta.total ?? clients.value.length;
+    pagination.per_page = meta.per_page ?? pagination.per_page;
+
+    stats.total = pagination.total;
+    const pageTotal = clients.value.length || 1;
     stats.optIn = Math.round(
-      ((clients.value.filter((client) => client.consent_marketing).length || 0) / (clients.value.length || 1)) * 100,
+      ((clients.value.filter((client) => client.consent_marketing).length || 0) / pageTotal) * 100,
     );
   } finally {
     loading.value = false;
   }
+}
+
+function changePage(target) {
+  const lastPage = pagination.last_page ?? 1;
+  const current = pagination.current_page ?? 1;
+
+  if (target < 1 || target > lastPage || target === current || loading.value) {
+    return;
+  }
+
+  fetchClients(target);
+}
+
+function resetNewClientForm() {
+  newClientForm.full_name = '';
+  newClientForm.phone = '';
+  newClientForm.email = '';
+  newClientForm.password = '';
+  newClientForm.birthdate = '';
+  newClientForm.instagram = '';
+  newClientForm.source = '';
+  newClientForm.consent_marketing = false;
+}
+
+function resetNewClientErrors() {
+  newClientErrors.full_name = '';
+  newClientErrors.phone = '';
+  newClientErrors.email = '';
+  newClientErrors.password = '';
+  newClientErrors.general = '';
+}
+
+function openCreateModal() {
+  resetNewClientForm();
+  resetNewClientErrors();
+  showCreateModal.value = true;
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false;
+}
+
+async function submitNewClient() {
+  resetNewClientErrors();
+
+  if (!newClientForm.full_name.trim()) {
+    newClientErrors.full_name = 'Informe o nome completo.';
+    return;
+  }
+
+  if (!newClientForm.phone.trim() && !newClientForm.email.trim()) {
+    newClientErrors.general = 'Informe telefone ou e-mail.';
+    return;
+  }
+
+  if (!newClientForm.password.trim()) {
+    newClientErrors.password = 'Informe uma senha.';
+    return;
+  }
+
+  savingClient.value = true;
+
+  const payload = {
+    full_name: newClientForm.full_name.trim(),
+    phone: newClientForm.phone.trim() || null,
+    email: newClientForm.email.trim() || null,
+    password: newClientForm.password,
+    birthdate: newClientForm.birthdate || null,
+    instagram: newClientForm.instagram.trim() || null,
+    source: newClientForm.source.trim() || null,
+    consent_marketing: Boolean(newClientForm.consent_marketing),
+  };
+
+  try {
+    await http.post('/clients', payload);
+    showCreateModal.value = false;
+    resetNewClientForm();
+    fetchClients(1);
+  } catch (error) {
+    const responseErrors = error.response?.data?.errors;
+    if (responseErrors) {
+      Object.entries(responseErrors).forEach(([field, messages]) => {
+        if (Object.prototype.hasOwnProperty.call(newClientErrors, field)) {
+          newClientErrors[field] = Array.isArray(messages) ? messages[0] : messages;
+        }
+      });
+      if (!newClientErrors.general && responseErrors.general) {
+        newClientErrors.general = Array.isArray(responseErrors.general)
+          ? responseErrors.general[0]
+          : responseErrors.general;
+      }
+    } else {
+      newClientErrors.general = error.response?.data?.message ?? 'Falha ao cadastrar cliente.';
+    }
+    return;
+  } finally {
+    savingClient.value = false;
+  }
+}
+
+function setStatusProcessing(clientId, processing) {
+  if (processing) {
+    if (!statusProcessing.value.includes(clientId)) {
+      statusProcessing.value = [...statusProcessing.value, clientId];
+    }
+    return;
+  }
+
+  statusProcessing.value = statusProcessing.value.filter((value) => value !== clientId);
+}
+
+function isStatusProcessing(clientId) {
+  return statusProcessing.value.includes(clientId);
+}
+
+async function updateClientStatus(client, targetStatus) {
+  if (!client?.id || targetStatus === client.status) {
+    return;
+  }
+
+  setStatusProcessing(client.id, true);
+  try {
+    await http.patch(`/clients/${client.id}/status`, { status: targetStatus });
+    fetchClients(pagination.current_page);
+  } catch (error) {
+    console.error('Falha ao atualizar status do cliente', error);
+  } finally {
+    setStatusProcessing(client.id, false);
+  }
+}
+
+async function openDetails(client) {
+  if (!client?.id) {
+    return;
+  }
+
+  selectedClient.value = client;
+  detailsError.value = '';
+  showDetailsModal.value = true;
+  detailsLoading.value = true;
+
+  try {
+    const { data } = await http.get(`/clients/${client.id}`);
+    selectedClient.value = data.data ?? data;
+  } catch (error) {
+    detailsError.value = error.response?.data?.message ?? 'Falha ao carregar detalhes do cliente.';
+  } finally {
+    detailsLoading.value = false;
+  }
+}
+
+function closeDetails() {
+  showDetailsModal.value = false;
+  selectedClient.value = null;
+  detailsError.value = '';
 }
 
 onMounted(() => {

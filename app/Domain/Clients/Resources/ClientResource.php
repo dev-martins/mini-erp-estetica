@@ -28,6 +28,8 @@ class ClientResource extends JsonResource
             'source' => $this->source,
             'last_appointment_at' => optional($this->last_appointment_at)?->toAtomString(),
             'tags' => $this->tags,
+            'status' => $this->resource->trashed() ? 'inactive' : 'active',
+            'deleted_at' => $this->deleted_at?->toAtomString(),
             'verification_channels' => $this->verification_channels ?? [],
             'created_at' => $this->created_at?->toAtomString(),
             'updated_at' => $this->updated_at?->toAtomString(),

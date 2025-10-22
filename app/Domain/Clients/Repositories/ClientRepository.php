@@ -11,11 +11,23 @@ class ClientRepository
 {
     public function paginate(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        return Client::query()
+        $status = $filters['status'] ?? 'active';
+
+        $query = Client::query();
+
+        if ($status === 'inactive') {
+            $query->onlyTrashed();
+        } elseif ($status === 'all') {
+            $query->withTrashed();
+        }
+
+        return $query
             ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
-                $query->where('full_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                $query->where(function (Builder $builder) use ($search): void {
+                    $builder->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
             })
             ->when($filters['no_return_since'] ?? null, function (Builder $query, string $date): void {
                 $query->where(function (Builder $builder) use ($date): void {
@@ -42,5 +54,24 @@ class ClientRepository
     public function delete(Client $client): void
     {
         $client->delete();
+    }
+
+    public function findWithTrashed(int $clientId): Client
+    {
+        return Client::withTrashed()->findOrFail($clientId);
+    }
+
+    public function deactivate(Client $client): void
+    {
+        if (! $client->trashed()) {
+            $client->delete();
+        }
+    }
+
+    public function activate(Client $client): void
+    {
+        if ($client->trashed()) {
+            $client->restore();
+        }
     }
 }

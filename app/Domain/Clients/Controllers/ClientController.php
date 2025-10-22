@@ -9,6 +9,7 @@ use App\Domain\Clients\Resources\ClientResource;
 use App\Domain\Clients\Services\ClientService;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class ClientController extends Controller
@@ -23,7 +24,7 @@ class ClientController extends Controller
         $this->authorize('viewAny', Client::class);
 
         $clients = $this->service->list(
-            filters: $request->only(['search', 'no_return_since']),
+            filters: $request->only(['search', 'no_return_since', 'status']),
             perPage: $request->integer('per_page', 15)
         );
 
@@ -47,6 +48,21 @@ class ClientController extends Controller
     public function update(ClientRequest $request, Client $client)
     {
         $updated = $this->service->update($client, ClientData::fromRequest($request));
+
+        return ClientResource::make($updated);
+    }
+
+    public function updateStatus(Request $request, int $client)
+    {
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+        ]);
+
+        $model = $this->service->findWithTrashed($client);
+
+        $this->authorize('update', $model);
+
+        $updated = $this->service->changeStatus($model, $data['status']);
 
         return ClientResource::make($updated);
     }
